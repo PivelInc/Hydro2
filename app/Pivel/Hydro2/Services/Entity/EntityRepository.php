@@ -64,7 +64,7 @@ class EntityRepository implements IEntityRepository
             $count++;
         }
 
-        //$this->_logger->Debug('Pivel/Hydro2', "Found {$count} entries from collection '{$this->definition->GetName()}' that match the query.");
+        $this->_logger->Debug('Pivel/Hydro2', "Found {$count} entries from collection '{$this->definition->GetName()}' that match the query.");
         return $entities;
     }
 
