@@ -148,10 +148,6 @@ class User implements JsonSerializable
 
     public function ValidateEmailVerificationToken(string $token) : bool
     {
-        if ($this->EmailVerified) {
-            return false;
-        }
-        
         return $token === $this->EmailVerificationToken;
     }
     
