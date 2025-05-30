@@ -80,7 +80,7 @@ class LoginCard extends MultiPageCard {
      * @param {H.AjaxResponse} response
      */
     _submitLoginCallback(response) {
-        if (response.Status == H.StatusCode.OK) {
+        if (response.Status == H.StatusCode.NoContent) {
             var result = response.ResponseObject;
             // the session token and key should be saved in a cookie (httponly so we can't read it here)
             //  if 2FA challenge is required, display 2FA challenge screen
