@@ -463,7 +463,7 @@ class UserController extends BaseController
             );
         }
         
-        $view->SetUserId($user->Id);
+        $view->SetUserId($user->RandomId);
 
         if (!$user->CheckPasswordResetToken($this->request->Args['token']??'')) {
             return new Response(
