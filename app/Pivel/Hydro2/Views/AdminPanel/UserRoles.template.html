@@ -156,7 +156,8 @@
                                     value += "...and " + (row['permissions'].length-2) + " more";
                                     break;
                                 }
-                                value += ""+row["permissions"][i]["name"]+"<br />";
+                                var name = user_role_avail_permissions[row["permissions"][i]["key"]]["name"] ?? row["permissions"][i]["name"] ?? row["permissions"][i]["key"];
+                                value += ""+name+"<br />";
                             }
                             if (value == "") {
                                 value = "None";
@@ -195,6 +196,8 @@
                 }
             }
 
+            fillUserRolePermissions();
+
             var user_roles_table = new RichTable("#user_roles_table", "/api/hydro2/identity/userroles", user_roles_table_renderer);
             user_roles_table._showDetailHandler = userRolesShowDetailCallback;
             user_roles_table._showEditHandler = userRolesShowEditCallback;
@@ -219,8 +222,6 @@
             var user_roles_edit_challenge_interval = new FormField("#user_role_edit_form_challenge_interval");
             var user_roles_edit_max_2fa_attempts = new FormField("#user_role_edit_form_max_2fa_attempts");
             var user_roles_edit_permissions = new RichSelect("#user_role_edit_form_permissions");
-
-            fillUserRolePermissions();
 
             H.Nodes("#user_role_create_form").AddEventHandler("submit", onUserRoleCreateFormSubmit);
             H.Nodes("#user_role_edit_form").AddEventHandler("submit", onUserRoleEditFormSubmit);
@@ -261,7 +262,7 @@
                 var permissions = "";
                 for (const p of data["permissions"]) {
                     permissions += "<tr>";
-                    permissions += "<td>" + p["name"] + "<br />";
+                    permissions += "<td>" + user_role_avail_permissions[p["key"]]["name"] + "<br />";
                     permissions += "<small>" + user_role_avail_permissions[p["key"]]["vendor"] + " / ";
                     permissions += user_role_avail_permissions[p["key"]]["package"] + " / ";
                     permissions += user_role_avail_permissions[p["key"]]["key"] + "</small></td>";
