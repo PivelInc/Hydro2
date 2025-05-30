@@ -80,7 +80,7 @@ class LoginCard extends MultiPageCard {
      * @param {H.AjaxResponse} response
      */
     _submitLoginCallback(response) {
-        if (response.Status == H.StatusCode.NoContent) {
+        if (response.Status == H.StatusCode.OK) {
             var result = response.ResponseObject;
             // the session token and key should be saved in a cookie (httponly so we can't read it here)
             //  if 2FA challenge is required, display 2FA challenge screen
@@ -144,7 +144,7 @@ class LoginCard extends MultiPageCard {
      * @param {H.AjaxResponse} response
      */
      _submitResetCallback(response) {
-        if (response.Status == H.StatusCode.OK) {
+        if (response.Status == H.StatusCode.NoContent) {
             // switch to #resetlinksent
             this.NavigateTo("resetlinksent");
             this._e.Nodes(this.id+"_requestresetpasswordform_submit").Enable();
