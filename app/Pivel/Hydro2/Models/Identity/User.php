@@ -211,11 +211,20 @@ class User implements JsonSerializable
             return false;
         }
 
+        return true;
+    }
+
+    public function SetPasswordResetTokenAsUsed(string $token): void
+    {
+        /** @var PasswordResetToken[] */
+        $tokenObjs = $this->userPasswordResetTokens->Read((new Query())->Equal('reset_token', $token)->Limit(1));
+        if (count($tokenObjs) != 1) {
+            return;
+        }
+
         // update token since it is now used.
         $tokenObjs[0]->Used = true;
         $this->userPasswordResetTokens->Update($tokenObjs[0]);
-
-        return true;
     }
 
     public function CreateNewPasswordResetToken(): ?PasswordResetToken

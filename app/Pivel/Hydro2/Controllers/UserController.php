@@ -323,6 +323,11 @@ class UserController extends BaseController
             );
         }
 
+        if ($reset_token !== null) {
+            // need to set the token as used.
+            $user->SetPasswordResetTokenAsUsed($reset_token);
+        }
+
         // check that the new password was provided.
         if (!isset($this->request->Args['new_password'])) {
             return new JsonResponse(
