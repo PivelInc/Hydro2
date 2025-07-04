@@ -167,6 +167,7 @@ class IdentityService implements IIdentityService
         $random_id_and_key = explode(';', $request->getCookie('sridkey', ""), 2);
 
         if (count($random_id_and_key) != 2 && $random_id === null && $key === null) {
+            $this->_logger->Warn('Pivel/Hydro2', "No valid session cookie was provided from {$request->getClientAddress()}.");
             setcookie('sridkey', '', time()-3600, '/');
             return null;
         }
@@ -195,6 +196,7 @@ class IdentityService implements IIdentityService
         }
 
         if (!$sessions[0]->IsValid()) {
+            $this->_logger->Warn('Pivel/Hydro2', "A session that is no longer valid was attempted to be used from {$request->getClientAddress()}.");
             setcookie('sridkey', '', time()-3600, '/');
             return null;
         }
