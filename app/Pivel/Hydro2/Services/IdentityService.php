@@ -162,7 +162,7 @@ class IdentityService implements IIdentityService
 
     // ==== Session-related methods ====
 
-    public function GetSessionFromRequest(Request $request, $random_id=null, $key=null): ?Session
+    public function GetSessionFromRequest(Request $request, $random_id=null, $key=null, $ignore_browser=false): ?Session
     {
         $random_id_and_key = explode(';', $request->getCookie('sridkey', ""), 2);
 
@@ -189,7 +189,7 @@ class IdentityService implements IIdentityService
             return null;
         }
 
-        if ($sessions[0]->Browser !== $request->UserAgent) {
+        if (!$ignore_browser && ($sessions[0]->Browser !== $request->UserAgent)) {
             $this->_logger->Warn('Pivel/Hydro2', "A session previously used on {$sessions[0]->Browser} was attempted to be used on {$request->UserAgent} by {$request->getClientAddress()}.");
             setcookie('sridkey', '', time()-3600, '/');
             return null;
