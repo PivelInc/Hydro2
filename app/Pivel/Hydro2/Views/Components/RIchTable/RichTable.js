@@ -16,6 +16,7 @@ class RichTable extends SortableTable {
         super(selector + ".rich-table", apiEndpoint, renderer);
 
         this._idKey = idKey;
+        this._searchForm = this._e.Nodes(selector + "_search_form");
         this._searchField = this._e.Nodes(selector + "_search_form_q");
         this._searchButton = this._e.Nodes(selector + "_search_form_submit");
         this._createButton = this._e.Nodes(selector + "_create");
@@ -28,7 +29,7 @@ class RichTable extends SortableTable {
         this._overlayCloseButtons = this._e.Nodes(".close-overlay");
 
         // add search event handler
-        this._searchButton.AddEventHandler("click", this._searchClick.bind(this));
+        this._searchForm.AddEventHandler("submit", this._searchClick.bind(this));
         // add create event handler
         this._createButton.AddEventHandler("click", this._createClick.bind(this));
         // add overlay close event handler(s)
