@@ -50,7 +50,7 @@ class RichSelect {
                 v.push(o.value);
             }
 
-            if (newValue != null && !this.isMultiple) {
+            if (newValue != null && this.isMultiple) {
                 o.selected = newValue.includes(o.value);
                 oneSelected = oneSelected || o.selected;
             }
