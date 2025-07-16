@@ -122,7 +122,6 @@ class SqlitePersistenceProvider implements IEntityPersistenceProvider
             $stmt = $this->pdo->prepare("CREATE TABLE IF NOT EXISTS {$collection->GetName()} ({$columnStructureString})");
             $stmt->execute();
         } catch (PDOException) {
-            echo "CREATE TABLE IF NOT EXISTS {$collection->GetName()} ({$columnStructureString})";
             return false;
         }
 
