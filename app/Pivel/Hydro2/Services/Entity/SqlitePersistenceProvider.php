@@ -2,6 +2,7 @@
 
 namespace Pivel\Hydro2\Services\Entity;
 
+use Exception;
 use PDO;
 use PDOException;
 use Pivel\Hydro2\Exceptions\Database\TableNotFoundException;
@@ -117,8 +118,13 @@ class SqlitePersistenceProvider implements IEntityPersistenceProvider
             $columnStructureString .= ','.$constraintStructureString;
         }
 
-        $stmt = $this->pdo->prepare("CREATE TABLE IF NOT EXISTS {$collection->GetName()} ({$columnStructureString})");
-        $stmt->execute();
+        try {
+            $stmt = $this->pdo->prepare("CREATE TABLE IF NOT EXISTS {$collection->GetName()} ({$columnStructureString})");
+            $stmt->execute();
+        } catch (PDOException) {
+            echo "CREATE TABLE IF NOT EXISTS {$collection->GetName()} ({$columnStructureString})";
+            return false;
+        }
 
         return true;
     }
