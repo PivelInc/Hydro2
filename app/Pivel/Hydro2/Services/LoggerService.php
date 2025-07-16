@@ -14,8 +14,12 @@ class LoggerService implements ILoggerService
     // fields: date time
     public function __construct()
     {
-        $this->logFilePath = Hydro2::$Current->MainAppDir;
-        $this->logFileSizeLimit = 1024*1024; // 1 MB
+        $this->logFilePath = Hydro2::$Current->MainAppDir . DIRECTORY_SEPARATOR . '.logs';
+        $this->logFileSizeLimit = 10*1024*1024; // 10 MB
+
+        if (!is_dir($this->logFilePath)) {
+            mkdir($this->logFilePath, recursive: true);
+        }
 
         if (!file_exists($this->logFilePath . DIRECTORY_SEPARATOR . 'hydro2.log')) {
             $this->CreateLogFile();
