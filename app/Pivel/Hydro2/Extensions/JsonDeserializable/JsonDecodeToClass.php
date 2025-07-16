@@ -4,6 +4,7 @@ namespace Pivel\Hydro2\Extensions\JsonDeserializable;
 
 use Error;
 use Exception;
+use InvalidArgumentException;
 
 class JsonDecodeToClass
 {
@@ -25,7 +26,7 @@ class JsonDecodeToClass
         }
 
         if (!is_a($class, JsonDeserializable::class, true)) {
-            return null;
+            throw new InvalidArgumentException("{$class} does not implement JsonDeserializable");
         }
 
         try {
