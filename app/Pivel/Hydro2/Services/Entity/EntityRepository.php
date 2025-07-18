@@ -436,7 +436,9 @@ class EntityRepository implements IEntityRepository
                 // Has an Entity tag
                 $definition = new EntityDefinition(get_class($pKValue));
                 $fieldName = $definition->GetPrimaryKeyField()->FieldName;
+                echo $fieldName;
                 $pKValue = $pKValue->$fieldName;
+                var_dump($pKValue);
             }
             
             $collection = new EntityCollection(
