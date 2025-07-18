@@ -3,6 +3,7 @@
 namespace Pivel\Hydro2\Services\Entity;
 
 use DateTime;
+use Pivel\Hydro2\Attributes\Entity\Entity;
 use Pivel\Hydro2\Attributes\Entity\ForeignEntityOneToMany;
 use Pivel\Hydro2\Exceptions\Database\TableNotFoundException;
 use Pivel\Hydro2\Extensions\Query;
@@ -427,6 +428,16 @@ class EntityRepository implements IEntityRepository
                 }
             }
 
+            $pKValue = $this->GetEntityPrimaryKey($entity);
+            // check if pkValue is an object representing another Entity, and if so get the value of it's primary key.
+            // TODO this should be recursive as long as pkValue represents another Entity
+            if (count((new ReflectionClass(get_class($pKValue)))->getAttributes(Entity::class)) == 1) {
+                // Has an Entity tag
+                $definition = new EntityDefinition(get_class($pKValue));
+                $fieldName = $definition->GetPrimaryKeyField()->FieldName;
+                $pKValue = $pKValue->$fieldName;
+            }
+            
             $collection = new EntityCollection(
                 $this->_entityService->GetRepository($attr->OtherEntityClass),
                 (new Query)->Equal($attr->OtherEntityFieldName, $this->GetEntityPrimaryKey($entity)),
