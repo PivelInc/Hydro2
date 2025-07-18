@@ -3,6 +3,7 @@
 namespace Pivel\Hydro2\Services\Entity;
 
 use Countable;
+use PHPUnit\SebastianBergmann\Environment\Console;
 use Pivel\Hydro2\Extensions\Query;
 
 /**
@@ -33,6 +34,7 @@ class EntityCollection implements Countable
             return $this->_repository->Read($this->baseQuery);
         }
 
+        var_dump($this->baseQuery->GetFilterParameters());
         return $this->_repository->Read($this->baseQuery->And($query));
     }
 
