@@ -434,9 +434,7 @@ class EntityRepository implements IEntityRepository
             if (is_object($pKValue) && count((new ReflectionClass(get_class($pKValue)))->getAttributes(Entity::class)) == 1) {
                 // Has an Entity tag
                 $definition = new EntityDefinition(get_class($pKValue));
-                $fieldName = $definition->GetPrimaryKeyField()->FieldName;
-                echo $fieldName;
-                $pKValue = $pKValue->$fieldName;
+                $pKValue = $definition->GetPrimaryKeyField()->Property->getValue($pKValue);
                 var_dump($pKValue);
             }
             
