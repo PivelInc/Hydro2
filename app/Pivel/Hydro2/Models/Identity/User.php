@@ -17,7 +17,7 @@ use Pivel\Hydro2\Services\Entity\EntityCollection;
 #[Entity(CollectionName: 'hydro2_users')]
 class User implements JsonSerializable
 {
-    #[EntityField(FieldName: 'user_uuid')]
+    #[EntityField(FieldName: 'uuid')]
     #[EntityPrimaryKey]
     public ?string $Id = null;
     #[EntityField(FieldName: 'inserted')]
