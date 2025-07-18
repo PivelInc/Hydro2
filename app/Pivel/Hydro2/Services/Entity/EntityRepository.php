@@ -430,8 +430,7 @@ class EntityRepository implements IEntityRepository
 
             $pKValue = $this->GetEntityPrimaryKey($entity);
             // check if pkValue is an object representing another Entity, and if so get the value of it's primary key.
-            // TODO this should be recursive as long as pkValue represents another Entity
-            if (is_object($pKValue) && count((new ReflectionClass(get_class($pKValue)))->getAttributes(Entity::class)) == 1) {
+            while (is_object($pKValue) && count((new ReflectionClass(get_class($pKValue)))->getAttributes(Entity::class)) == 1) {
                 // Has an Entity tag
                 $definition = new EntityDefinition(get_class($pKValue));
                 $pKValue = $definition->GetPrimaryKeyField()->Property->getValue($pKValue);

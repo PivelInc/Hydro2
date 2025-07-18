@@ -34,7 +34,6 @@ class EntityCollection implements Countable
             return $this->_repository->Read($this->baseQuery);
         }
 
-        var_dump($this->baseQuery->GetFilterParameters());
         return $this->_repository->Read($this->baseQuery->And($query));
     }
 
