@@ -355,13 +355,17 @@ class EntityRepository implements IEntityRepository
                 }
             }
 
-            if (!$field->IsForeignKey || !is_object($value)) {
+            if (!$field->IsForeignKey) {
                 $values[$field->FieldName] = $value;
                 continue;
             }
 
-            $fkPkField = (new EntityDefinition($field->ForeignKeyClassName))->GetPrimaryKeyField();
-            $values[$field->FieldName] = $value===null?null:$fkPkField->Property->getValue($value);
+            while (is_object($value) && count((new ReflectionClass(get_class($value)))->getAttributes(Entity::class)) == 1) {
+                $fkPkField = (new EntityDefinition(get_class($value)))->GetPrimaryKeyField();
+                $value = $fkPkField->Property->getValue($value);
+            }
+
+            $values[$field->FieldName] = $value;
         }
 
         return $values;
