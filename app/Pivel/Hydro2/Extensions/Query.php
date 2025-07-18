@@ -2,6 +2,7 @@
 
 namespace Pivel\Hydro2\Extensions;
 
+use DateTime;
 use Pivel\Hydro2\Models\Database\Order;
 use Pivel\Hydro2\Models\HTTP\Request;
 
@@ -66,6 +67,11 @@ class Query
     // filtering. Filter conditions are combined with AND.
     private function Condition(string $fieldName, mixed $value, string $operator, bool $negated=false) : Query
     {
+        if (is_a($value, DateTime::class)) {
+            // convert DateTime to ISO 8601 date string
+            $value = $value->format('c');
+        }
+
         $parameterKey = 'p' . $this::$nextParameterNumber++;
         $this->filterParameters[$parameterKey] = $value;
 
