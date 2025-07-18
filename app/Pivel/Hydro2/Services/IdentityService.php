@@ -178,7 +178,7 @@ class IdentityService implements IIdentityService
         /** @var Session[] */
         $sessions = $this->sessionRepository->Read((new Query())->Equal('random_id', $random_id));
         if (count($sessions) != 1) {
-            $this->_logger->Warn('Pivel/Hydro2', "A nonexistant Session ID was provided from {$request->getClientAddress()}.");
+            $this->_logger->Warn('Pivel/Hydro2', "A nonexistant Session ID ({$random_id}) was provided from {$request->getClientAddress()}.");
             setcookie('sridkey', '', time()-3600, '/');
             return null;
         }
