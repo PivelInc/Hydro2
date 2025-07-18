@@ -202,6 +202,7 @@ class SqlitePersistenceProvider implements IEntityPersistenceProvider
         ));
         try {
             $stmt = $this->pdo->prepare("INSERT INTO ".$collection->GetName()." (".$columnsString.") VALUES (".$valuePlaceholdersString.")");
+            var_dump($fieldValuesExceptAutoIncrement);
             $stmt->execute($fieldValuesExceptAutoIncrement);
         } catch (PDOException $e) {
             if ($e->errorInfo[0] == 'HY000' && $e->errorInfo[1] == 1 && str_contains($e->errorInfo[2], 'no such table')) {
