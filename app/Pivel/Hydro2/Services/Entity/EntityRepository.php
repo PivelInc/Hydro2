@@ -440,7 +440,7 @@ class EntityRepository implements IEntityRepository
             
             $collection = new EntityCollection(
                 $this->_entityService->GetRepository($attr->OtherEntityClass),
-                (new Query)->Equal($attr->OtherEntityFieldName, $this->GetEntityPrimaryKey($entity)),
+                (new Query)->Equal($attr->OtherEntityFieldName, $pKValue),
             );
 
             $property->setValue($entity, $collection);
