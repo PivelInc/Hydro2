@@ -16,7 +16,7 @@ class PasswordResetToken
     #[EntityField(FieldName: 'id', AutoIncrement: true)]
     #[EntityPrimaryKey]
     public ?int $Id = null;
-    #[EntityField(FieldName: 'user_id')]
+    #[EntityField(FieldName: 'user_uuid')]
     #[ForeignEntityManyToOne(OnDelete: ReferenceBehaviour::CASCADE)]
     private ?User $user;
     #[EntityField(FieldName: 'reset_token')]

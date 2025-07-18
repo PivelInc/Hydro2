@@ -152,19 +152,19 @@ class SessionController extends BaseController
         );
     }
 
-    #[Route(Method::GET, 'users/{id}/sessions')]
+    #[Route(Method::GET, 'users/{uuid}/sessions')]
     public function UserGetSessions(): Response
     {
         // need to have either viewusersessions permission or be requestion own user's sessions
         $requestUser = $this->_identityService->GetUserFromRequestOrVisitor($this->request);
         if (!(
             $requestUser->GetUserRole()->HasPermission(Permissions::ViewUserSessions->value) ||
-            $requestUser->RandomId == $this->request->Args['id']
+            $requestUser->Id == $this->request->Args['id']
         )) {
             return new Response(status: StatusCode::NotFound);
         }
 
-        $user = $this->_identityService->GetUserFromRandomId($this->request->Args['id']);
+        $user = $this->_identityService->GetUserFromId($this->request->Args['uuid']);
         if ($user === null) {
             return new Response(status: StatusCode::NotFound);
         }

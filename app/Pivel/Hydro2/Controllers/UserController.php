@@ -137,19 +137,19 @@ class UserController extends BaseController
 
         $view = new NewUserVerificationEmailView($this->_identityService->GetEmailVerificationUrl($this->request, $newUser, true), $newUser->Name);
         if (!$this->_userNotificationService->SendEmailToUser($newUser, $view)) {
-            $this->_logger->Error("Pivel/Hydro2", "Unable to send validation email for user {$newUser->RandomId}.");
+            $this->_logger->Error("Pivel/Hydro2", "Unable to send validation email for user {$newUser->Id}.");
         }
 
         return new JsonResponse(
             $newUser,
             status: StatusCode::Created,
             headers: [
-                'Location' => $this->request->fullUrl . "/{$newUser->RandomId}",
+                'Location' => $this->request->fullUrl . "/{$newUser->Id}",
             ],
         );
     }
 
-    #[Route(Method::GET, '{id}')]
+    #[Route(Method::GET, '{uuid}')]
     public function ListUser(): Response
     {
         // if current user doesn't have permission pivel/hydro2/viewusers/, return 404,
@@ -157,12 +157,12 @@ class UserController extends BaseController
         $requestUser = $this->_identityService->GetUserFromRequestOrVisitor($this->request);
         if (!(
             $requestUser->GetUserRole()->HasPermission(Permissions::ViewUsers->value) ||
-            $requestUser->RandomId === ($this->request->Args['id'])
+            $requestUser->Id === ($this->request->Args['uuid'])
         )) {
             return new Response(status: StatusCode::NotFound);
         }
 
-        $user = $this->_identityService->GetUserFromRandomId($this->request->Args['id']);
+        $user = $this->_identityService->GetUserFromId($this->request->Args['uuid']);
 
         if ($user === null) {
             return new Response(status: StatusCode::NotFound);
@@ -171,7 +171,7 @@ class UserController extends BaseController
         return new JsonResponse($user);
     }
 
-    #[Route(Method::POST, '{id}')]
+    #[Route(Method::POST, '{uuid}')]
     public function UpdateUser(): Response
     {
         // if current user doesn't have permission pivel/hydro2/manageuser, return 404,
@@ -179,12 +179,12 @@ class UserController extends BaseController
         $requestUser = $this->_identityService->GetUserFromRequestOrVisitor($this->request);
         if (!(
             $requestUser->GetUserRole()->HasPermission(Permissions::ManageUsers->value) ||
-            $requestUser->RandomId === ($this->request->Args['id'])
+            $requestUser->Id === ($this->request->Args['uuid'])
         )) {
             return new Response(status: StatusCode::NotFound);
         }
 
-        $user = $this->_identityService->GetUserFromRandomId($this->request->Args['id']);
+        $user = $this->_identityService->GetUserFromId($this->request->Args['uuid']);
 
         if ($user === null) {
             return new Response(status: StatusCode::NotFound);
@@ -247,14 +247,14 @@ class UserController extends BaseController
                 $this->_userNotificationService->SendEmailToUser($user, $newEmailView) &&
                 $this->_userNotificationService->SendEmailToUser(new User($oldEmail, $user->Name), $oldEmailView)
             )) {
-                $this->_logger->Error("Pivel/Hydro2", "Unable to send validation email for user {$user->RandomId}.");
+                $this->_logger->Error("Pivel/Hydro2", "Unable to send validation email for user {$user->Id}.");
             }
         }
 
         return new JsonResponse(status: StatusCode::NoContent);
     }
 
-    #[Route(Method::DELETE, '{id}')]
+    #[Route(Method::DELETE, '{uuid}')]
     public function DeleteUser(): Response
     {
         // if current user doesn't have permission pivel/hydro2/viewusers/, return 404
@@ -263,7 +263,7 @@ class UserController extends BaseController
             return new Response(status: StatusCode::NotFound);
         }
 
-        $user = $this->_identityService->GetUserFromRandomId($this->request->Args['id']);
+        $user = $this->_identityService->GetUserFromId($this->request->Args['uuid']);
 
         if ($user === null) {
             return new Response(status: StatusCode::NotFound);
@@ -282,11 +282,11 @@ class UserController extends BaseController
     }
 
     // TODO add 2FA for changing passwords if set up
-    #[Route(Method::POST, '{id}/changepassword')]
+    #[Route(Method::POST, '{uuid}/changepassword')]
     #[Route(Method::POST, '~api/hydro2/identity/changeuserpassword')]
     public function UserChangePassword(): Response
     {
-        $user = $this->_identityService->GetUserFromRandomId($this->request->Args['id']??'');
+        $user = $this->_identityService->GetUserFromId($this->request->Args['uuid']??'');
         if ($user === null) {
             $user = $this->_identityService->GetUserFromEmail($this->request->Args['email']??'');
         }
@@ -354,11 +354,11 @@ class UserController extends BaseController
         return new Response(status: StatusCode::NoContent);
     }
 
-    #[Route(Method::POST, '{id}/sendpasswordreset')]
+    #[Route(Method::POST, '{uuid}/sendpasswordreset')]
     #[Route(Method::POST, '~api/hydro2/identity/sendpasswordreset')]
     public function UserSendResetPassword(): Response
     {
-        $user = $this->_identityService->GetUserFromRandomId($this->request->Args['id']??'');
+        $user = $this->_identityService->GetUserFromId($this->request->Args['uuid']??'');
         if ($user === null) {
             $this->_logger->Debug("Pivel/Hydro2", "Finding user from email \"{$this->request->Args['email']}\"");
             $user = $this->_identityService->GetUserFromEmail($this->request->Args['email']??'');
@@ -388,7 +388,7 @@ class UserController extends BaseController
         return new Response(status: StatusCode::NoContent);
     }
 
-    #[Route(Method::GET, '~verifyuseremail/{id}')]
+    #[Route(Method::GET, '~verifyuseremail/{uuid}')]
     #[Route(Method::GET, '~verifyuseremail')]
     public function UserVerify(): Response {
         $view = new VerifyView(false);
@@ -399,7 +399,7 @@ class UserController extends BaseController
             );
         }
 
-        $user = $this->_identityService->GetUserFromRandomId($this->request->Args['id']??'');
+        $user = $this->_identityService->GetUserFromId($this->request->Args['uuid']??'');
 
         if ($user === null) {
             return new Response(
@@ -407,7 +407,7 @@ class UserController extends BaseController
             );
         }
         
-        $view->SetUserId($this->request->Args['id']);
+        $view->SetUserId($this->request->Args['uuid']);
 
         if (!$user->ValidateEmailVerificationToken($this->request->Args['token'])) {
             return new Response(
@@ -445,7 +445,7 @@ class UserController extends BaseController
         );
     }
 
-    #[Route(Method::GET, '~resetpassword/{id}')]
+    #[Route(Method::GET, '~resetpassword/{uuid}')]
     #[Route(Method::GET, '~resetpassword')]
     public function UserResetPasswordView() : Response {
         $view = new ResetView(false);
@@ -456,14 +456,14 @@ class UserController extends BaseController
             );
         }
 
-        $user = $this->_identityService->GetUserFromRandomId($this->request->Args['id']??'');
+        $user = $this->_identityService->GetUserFromId($this->request->Args['uuid']??'');
         if ($user === null) {
             return new Response(
                 content:$view->Render(),
             );
         }
         
-        $view->SetUserId($user->RandomId);
+        $view->SetUserId($user->Id);
 
         if (!$user->CheckPasswordResetToken($this->request->Args['token']??'')) {
             return new Response(

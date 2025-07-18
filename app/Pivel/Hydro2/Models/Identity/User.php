@@ -17,11 +17,9 @@ use Pivel\Hydro2\Services\Entity\EntityCollection;
 #[Entity(CollectionName: 'hydro2_users')]
 class User implements JsonSerializable
 {
-    #[EntityField(FieldName: 'id', AutoIncrement: true)]
+    #[EntityField(FieldName: 'user_uuid')]
     #[EntityPrimaryKey]
-    public ?int $Id = null;
-    #[EntityField(FieldName: 'random_id')]
-    public ?string $RandomId = null;
+    public ?string $Id = null;
     #[EntityField(FieldName: 'inserted')]
     public ?DateTime $InsertedTime = null;
     #[EntityField(FieldName: 'email')]
@@ -67,7 +65,7 @@ class User implements JsonSerializable
     ) {
         $this->Email = $email;
         if ($this->Email !== '') {
-            $this->GenerateRandomId();
+            $this->GenerateId();
             $this->InsertedTime = new DateTime(timezone: new DateTimeZone('UTC'));
         }
         $this->EmailVerified = false;
@@ -82,7 +80,7 @@ class User implements JsonSerializable
     public function jsonSerialize(): mixed
     {
         return [
-            'random_id' => $this->RandomId,
+            'uuid' => $this->Id,
             'created' => $this->InsertedTime->format("c"),
             'email' => $this->Email,
             'email_verified' => $this->EmailVerified,
@@ -131,9 +129,16 @@ class User implements JsonSerializable
         $this->role = $role;
     }
 
-    private function GenerateRandomId(): void
+    private function GenerateId(): void
     {
-        $this->RandomId = md5(uniqid($this->Email, true));
+        $data = random_bytes(16);
+        // Set version to 0100
+        $data[6] = chr(ord($data[6]) & 0x0f | 0x40);
+        // Set bits 6-7 to 10
+        $data[8] = chr(ord($data[8]) & 0x3f | 0x80);
+        // format as Uuid
+        $uuid = vsprintf("%s%s-%s-%s-%s-%s%s%s", str_split(bin2hex($data), 4));
+        $this->Id = $uuid;
     }
 
     public function GetEmailVerificationToken(): string

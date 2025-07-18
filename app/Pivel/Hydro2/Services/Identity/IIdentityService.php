@@ -23,13 +23,13 @@ interface IIdentityService
      */
     public function GetUsersMatchingQuery(Query $query): array;
     public function GetEmailVerificationUrl(Request $request, User $user, bool $regenerate=false): string;
-    public function GetUserFromRandomId(string $randomId): ?User;
+    public function GetUserFromId(string $randomId): ?User;
     public function GetUserFromEmail(string $email): ?User;
     
     // ==== Session-related methods ====
     public function GetSessionFromRequest(Request $request, $random_id=null, $key=null, $ignore_browser=false): ?Session;
     public function GetSessionFromRandomId(string $randomId): ?Session;
-    public function StartSession(User $user, Request $request): Session;
+    public function StartSession(User $user, Request $request): ?Session;
     public function ExpireSession(Session &$session): bool;
 
     // ==== UserRole-related methods ====
