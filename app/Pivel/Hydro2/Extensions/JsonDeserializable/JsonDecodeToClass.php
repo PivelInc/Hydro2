@@ -32,7 +32,6 @@ class JsonDecodeToClass
         try {
             return $class::jsonDeserialize($object);
         } catch (Exception $e) {
-            throw $e;
             return null;
         }
         
