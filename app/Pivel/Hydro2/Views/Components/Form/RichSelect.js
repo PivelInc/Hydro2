@@ -43,24 +43,28 @@ class RichSelect {
         if (newValue !== null && !Array.isArray(newValue)) {
             newValue = [newValue];
         }
-        var v = [];
+        var oldValue = [];
         var oneSelected = false;
-        for (const o of this.select.options) {
-            if (o.selected) {
-                v.push(o.value);
+        for (var option of this.select.options) {
+            if (option.selected) {
+                oldValue.push(option.value);
             }
 
-            if (newValue != null && this.isMultiple) {
-                o.selected = newValue.includes(o.value);
-                oneSelected = oneSelected || o.selected;
+            if (newValue != null) {
+                if (this.isMultiple && oneSelected) {
+                    option.selected = false;
+                    continue;
+                }
+                option.selected = newValue.includes(option.value);
+                oneSelected = oneSelected || option.selected;
             }
         }
 
         if (!this.isMultiple) {
-            return v.length > 0 ? v[0] : null;
+            return oldValue.length > 0 ? oldValue[0] : null;
         }
 
-        return v;
+        return oldValue;
     }
 
     Clear() {
