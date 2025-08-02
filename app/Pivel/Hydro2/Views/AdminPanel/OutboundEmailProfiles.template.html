@@ -5,11 +5,67 @@
             {#arg Headers[]}<th class="sortable" data-property="key">Key</th>{#}
             {#arg Headers[]}<th class="sortable" data-property="label">Name</th>{#}
             {#arg Headers[]}<th class="sortable" data-property="type">Type</th>{#}
-            {#arg Headers[]}<th class="sortable" data-property="sender">Sender Name</th>{#}
+            {#arg Headers[]}<th class="sortable" data-property="sender">Sender</th>{#}
             {#arg Headers[]}<th class="sortable" data-property="host">Host</th>{#}
         {#}
         <script>
-            var email_profiles_table = new SortableTable("#email_profiles_table", "/api/hydro2/email/outboundprofiles");
+            var email_profiles_table_renderer = function(table) {
+                table._nextRowId = 0;
+                // if no data, display placeholder
+                if (table._data.length == 0) {
+                    if (table._hasContextMenu) {
+                        table._table.Nodes("tbody").HTML("<tr><td class=\"placeholder\" colspan=\"20\">No data</td><td></td></tr>");
+                    } else {
+                        table._table.Nodes("tbody").HTML("<tr><td class=\"placeholder\" colspan=\"20\">No data</td></tr>");   
+                    }
+                    return;
+                }
+                var tbodyHtml = "";
+                // for each row in this._data:
+                for (var row of table._data) {
+                    // add <tr>
+                    if (table._hasContextMenu) {
+                        tbodyHtml += "<tr data-row=\"" + table._nextRowId + "\">";
+                    } else {
+                        tbodyHtml += "<tr>";
+                    }
+                    // for each property in this._columns:
+                    for (var property of table._columns) {
+                        // add <td>row[property]</td> to tbodyHtml
+                        if (property == 'sender') {
+                            var value = row['sender']['Name'] + " <" + row['sender']['Address'] + ">";
+                        } else {
+                            value = row[property];
+                            if (value === true) {
+                                value = "Yes";
+                            } else if (value === false) {
+                                value = "No";
+                            } else if (value === null) {
+                                value = "N/A";
+                            }
+                            value = H.HtmlEncode(value);
+                        }
+                        tbodyHtml += "<td>" + value + "</td>";
+                    }
+                    if (table._hasContextMenu) {
+                        tbodyHtml += "<td><button class=\"rich-table-context-btn\" title=\"More...\" data-row=\"" + table._nextRowId + "\">...</button></td>";
+                        table._nextRowId++;
+                    }
+                    // add </tr>
+                    tbodyHtml += "</tr>";
+                }
+                table._e.Nodes("tbody").HTML(tbodyHtml);
+
+                if (table._hasContextMenu) {
+                    // attach event handlers to buttons
+                    table._contextButtons = table._table.Nodes(".rich-table-context-btn");
+                    table._contextButtons.AddEventHandler("click", table._contextMenuClick.bind(table));
+                    // attach event handlers to rows
+                    table._table.Nodes("tbody > tr").AddEventHandler("contextmenu", table._contextMenuClick.bind(table));
+                }
+            }
+
+            var email_profiles_table = new SortableTable("#email_profiles_table", "/api/hydro2/email/outboundprofiles", email_profiles_table_renderer);
         </script>
     {#}
 {#}
