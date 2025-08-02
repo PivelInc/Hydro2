@@ -113,7 +113,7 @@
                                 var value = "Unassigned";
                             }
                         } else if (property == 'created') {
-                            var value = new Date(""+row['created']['date']+row['created']['timezone']).toLocaleString([],{"dateStyle":"long","timeStyle":"short","hour12":false});
+                            var value = new Date(row['created']).toLocaleString([],{"dateStyle":"long","timeStyle":"short","hour12":false});
                         } else {
                             var value = row[property];
                         }
