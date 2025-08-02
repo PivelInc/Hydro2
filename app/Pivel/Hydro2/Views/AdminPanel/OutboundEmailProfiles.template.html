@@ -34,6 +34,7 @@
                         // add <td>row[property]</td> to tbodyHtml
                         if (property == 'sender') {
                             var value = row['sender']['Name'] + " <" + row['sender']['Address'] + ">";
+                            value = H.HtmlEncode(value);
                         } else {
                             value = row[property];
                             if (value === true) {
