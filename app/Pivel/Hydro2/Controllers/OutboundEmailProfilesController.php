@@ -245,7 +245,7 @@ class OutboundEmailProfilesController extends BaseController
             return new Response(status: StatusCode::NotFound);
         }
 
-        $destination = isset($this->request->Args['to']) ?? $requestUser->Email;
+        $destination = new EmailAddress($this->request->Args['to'] ?? $requestUser->Email);
 
         $r = $this->_entityService->GetRepository(OutboundEmailProfile::class);
 
@@ -254,7 +254,7 @@ class OutboundEmailProfilesController extends BaseController
         if (count($profiles) != 1) {
             return new JsonResponse(
                 new ErrorMessage('emailprofiles-0007', 'Invalid parameter \"key\"', 'An outbound email profile with the specified key does not exist.'),
-                status: StatusCode::UnprocessableEntity,
+                status: StatusCode::BadRequest,
             );
         }
         $profile = $profiles[0];
@@ -264,7 +264,7 @@ class OutboundEmailProfilesController extends BaseController
         if ($provider === null) {
             return new JsonResponse(
                 new ErrorMessage('emailprofiles-0008', 'Invalid parameter \"type\"', 'No provider available to handle this outbound email profile\'s type'),
-                status: StatusCode::UnprocessableEntity,
+                status: StatusCode::BadRequest,
             );
         }
 
@@ -284,12 +284,12 @@ class OutboundEmailProfilesController extends BaseController
             }
             return new JsonResponse(
                 $errors,
-                status: StatusCode::UnprocessableEntity,
+                status: StatusCode::BadRequest,
             );
         } catch (TLSUnavailableException) {
             return new JsonResponse(
                 new ErrorMessage('emailprofiles-0012', 'Invalid parameter \"secure\"', 'The selected profile requires TLS, but TLS negotiation was unavailable or unsuccessful.'),
-                status: StatusCode::UnprocessableEntity,
+                status: StatusCode::BadRequest,
             );
         } catch (AuthenticationFailedException) {
             return new JsonResponse(
@@ -298,12 +298,12 @@ class OutboundEmailProfilesController extends BaseController
                     new ErrorMessage('emailprofiles-0014', 'Invalid parameter \"username\"', 'Authentication failed.'),
                     new ErrorMessage('emailprofiles-0015', 'Invalid parameter \"password\"', 'Authentication failed.'),
                 ],
-                status: StatusCode::UnprocessableEntity,
+                status: StatusCode::BadRequest,
             );
         } catch (NotAuthenticatedException) {
             return new JsonResponse(
                 new ErrorMessage('emailprofiles-0016', 'Invalid parameter \"require_auth\"', 'The email server requires authentication.'),
-                status: StatusCode::UnprocessableEntity,
+                status: StatusCode::BadRequest,
             );
         } catch (Exception) {
             $result = false;
@@ -312,7 +312,7 @@ class OutboundEmailProfilesController extends BaseController
         if (!$result) {
             return new JsonResponse(
                 new ErrorMessage('emailprofiles-0017', 'Unable to validate', 'The email could not be sent.'),
-                status: StatusCode::UnprocessableEntity,
+                status: StatusCode::BadRequest,
             );
         }
 

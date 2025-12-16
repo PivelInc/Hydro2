@@ -318,7 +318,7 @@
             }
 
             function SubmitUserRoleEditForm() {
-                H.Nodes("#user_roles_edit_form_submit").Disable();
+                H.Nodes("#user_role_edit_form_submit").Disable();
                 var request = new H.AjaxRequest("POST", "/api/hydro2/identity/userroles/" + user_roles_edit_id.input.Value());
                 request.SetJsonData({
                     "name": user_roles_edit_name.input.Value(),
