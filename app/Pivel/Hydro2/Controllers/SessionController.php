@@ -6,6 +6,7 @@ use DateTime;
 use DateTimeZone;
 use Pivel\Hydro2\Extensions\Route;
 use Pivel\Hydro2\Extensions\RoutePrefix;
+use Pivel\Hydro2\Hydro2;
 use Pivel\Hydro2\Models\ErrorMessage;
 use Pivel\Hydro2\Models\HTTP\JsonResponse;
 use Pivel\Hydro2\Models\HTTP\Method;
@@ -26,17 +27,20 @@ use Pivel\Hydro2\Views\Identity\LoginView;
 #[RoutePrefix('api/hydro2/identity')]
 class SessionController extends BaseController
 {
+    private Hydro2 $_app;
     private ILoggerService $_logger;
     private IdentityService $_identityService;
     private UserNotificationService $_userNotificationService;
 
     public function __construct(
+        Hydro2 $app,
         ILoggerService $logger,
         IdentityService $identityService,
         UserNotificationService $userNotificationService,
         Request $request,
     )
     {
+        $this->_app = $app;
         $this->_logger = $logger;
         $this->_identityService = $identityService;
         parent::__construct($request);
@@ -227,7 +231,7 @@ class SessionController extends BaseController
         }
 
         return new Response(
-            content: $view->Render()
+            content: $view->Render($this->_app)
         );
     }
 

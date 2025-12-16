@@ -4,6 +4,7 @@ namespace Pivel\Hydro2\Services\Entity;
 
 use Exception;
 use PDOException;
+use PHPUnit\Util\Json;
 use Pivel\Hydro2\Attributes\Entity\Entity;
 use Pivel\Hydro2\Exceptions\Database\HostNotFoundException;
 use Pivel\Hydro2\Exceptions\Database\InvalidUserException;
@@ -16,20 +17,26 @@ use ReflectionClass;
 
 class EntityService implements IEntityService
 {
+    private Hydro2 $_app;
     private ILoggerService $_logger;
     private PackageManifestService $_manifestService;
     private IEntityRepository $_persistenceProfileRepository;
 
     public function __construct(
+        Hydro2 $app,
         ILoggerService $logger,
         PackageManifestService $manifestService,
     ) {
+        $this->_app = $app;
         $this->_logger = $logger;
         $this->_manifestService = $manifestService;
         //$this->_logger->Debug('Pivel/Hydro2', 'Starting entity service...');
 
-        $profile = new EntityPersistenceProfile('persistence_profile_store');
-        $profile->SetProfile(JsonPersistenceProvider::class, Hydro2::$Current->MainAppDir . DIRECTORY_SEPARATOR . 'persistenceprofiles.json');
+        $profile = new EntityPersistenceProfile(
+            'persistence_profile_store',
+            $this->_app->MainAppDir . DIRECTORY_SEPARATOR . 'persistenceprofiles.json',
+            JsonPersistenceProvider::class
+        );
         $provider = $profile->GetPersistenceProvider();
         $this->_persistenceProfileRepository = new EntityRepository($this, $provider, $this->_logger, EntityPersistenceProfile::class);
         
@@ -98,8 +105,11 @@ class EntityService implements IEntityService
 
         // if the profile wasn't found, create a new profile, by default using an Sqlite database.
         if (count($profiles) != 1) {
-            $profiles[0] = new EntityPersistenceProfile($profileKey);
-            $profiles[0]->SetProfile(SqlitePersistenceProvider::class, Hydro2::$Current->MainAppDir . DIRECTORY_SEPARATOR . "{$profileKey}.sqlite3");
+            $profiles[0] = new EntityPersistenceProfile(
+                $profileKey,
+                $this->_app->MainAppDir . DIRECTORY_SEPARATOR . "{$profileKey}.sqlite3",
+                SqlitePersistenceProvider::class
+            );
             $this->_persistenceProfileRepository->Create($profiles[0]);
         }
 
@@ -111,6 +121,9 @@ class EntityService implements IEntityService
         return $this->_persistenceProfileRepository->Update($profile);
     }
 
+    /**
+     * @param class-string<T> $entityClass
+     */
     public function Read(string $entityClass, Query $query): object
     {
         return new $entityClass();

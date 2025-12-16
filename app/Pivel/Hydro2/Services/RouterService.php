@@ -11,14 +11,17 @@ use ReflectionClass;
 
 class RouterService
 {
+    private Hydro2 $_app;
     private array $routes;
     private ILoggerService $_loggerService;
     private PackageManifestService $_manifestService;
 
     public function __construct(
+        Hydro2 $app,
         ILoggerService $loggerService,
         PackageManifestService $packageManifestService,
     ) {
+        $this->_app = $app;
         $this->_loggerService = $loggerService;
         $this->_manifestService = $packageManifestService;
     }
@@ -92,12 +95,12 @@ class RouterService
     }
 
     public function LoadRoutes() : bool {
-        if (!file_exists(Hydro2::$Current->MainAppDir . '/routes.json')) {
+        if (!file_exists($this->_app->MainAppDir . '/routes.json')) {
             return false;
         }
 
         //$loading_start = microtime(true);
-        $raw_routes = file_get_contents(Hydro2::$Current->MainAppDir . '/routes.json');
+        $raw_routes = file_get_contents($this->_app->MainAppDir . '/routes.json');
         //$loading_end = microtime(true);
         //echo "Took " . ($loading_end - $loading_start) * 1000 . 'ms to load file contents.';
         $this->routes = json_decode($raw_routes, true);
@@ -110,7 +113,7 @@ class RouterService
     }
 
     public function SaveRoutes() : void {
-        file_put_contents(Hydro2::$Current->MainAppDir . '/routes.json', json_encode($this->routes));
+        file_put_contents($this->_app->MainAppDir . '/routes.json', json_encode($this->routes));
     }
 
     public function GetMatchingRoutes(Method $method, string $path) : array {
@@ -337,12 +340,12 @@ class RouterService
                     continue;
                 }
 
-                if (!isset($route['path'][$template_segment_idx+1])) {
+                if (!isset($template['path'][$template_segment_idx+1])) {
                     $parameters[$parameter_name] .= '/' . $path_segments[$i];
                     continue;
                 }
 
-                $next_template_segment = $route['path'][$template_segment_idx+1];
+                $next_template_segment = $template['path'][$template_segment_idx+1];
                 $next_template_segment_type = self::GetPathSegmentType($next_template_segment);
                 if ($next_template_segment_type == self::SEG_LITERAL && $next_template_segment == $path_segments[$i]) {
                     $template_segment_idx += 2;

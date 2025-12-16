@@ -100,7 +100,7 @@ class EntityRepository implements IEntityRepository
             $created = $this->_provider->CreateCollectionIfNotExists($this->definition);
             if (!$created) {
                 $this->_logger->Error('Pivel/Hydro2', "Failed to create definition '{$this->definition->GetName()}'.");
-                return [];
+                return false;
             }
             $this->_logger->Info('Pivel/Hydro2', "Successfully created '{$this->definition->GetName()}'.");
             $results = $this->_provider->Select($this->definition, $query);
@@ -134,6 +134,9 @@ class EntityRepository implements IEntityRepository
         return $result;
     }
 
+    /**
+     * @param TEntity &$entity
+     */
     public function Create(object &$entity) : bool
     {
         if (!($entity instanceof ($this->entityClass))) {
@@ -176,6 +179,9 @@ class EntityRepository implements IEntityRepository
         return true;
     }
 
+    /**
+     * @param TEntity &$entity
+     */
     public function Update(object &$entity) : bool
     {
         if (!($entity instanceof ($this->entityClass))) {
@@ -219,6 +225,9 @@ class EntityRepository implements IEntityRepository
         return true;
     }
 
+    /**
+     * @param TEntity $entity
+     */
     public function Delete(object $entity) : bool
     {
         if (!($entity instanceof ($this->entityClass))) {
@@ -273,7 +282,7 @@ class EntityRepository implements IEntityRepository
             }
         }
 
-        /** @var TEntity */
+        /** @var class<TEntity> */
         $entity ??= new $this->entityClass();
 
         // if this entity has a parent, load those properties

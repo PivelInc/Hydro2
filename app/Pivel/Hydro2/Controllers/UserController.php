@@ -5,6 +5,7 @@ namespace Pivel\Hydro2\Controllers;
 use Pivel\Hydro2\Extensions\Query;
 use Pivel\Hydro2\Extensions\Route;
 use Pivel\Hydro2\Extensions\RoutePrefix;
+use Pivel\Hydro2\Hydro2;
 use Pivel\Hydro2\Models\Database\Order;
 use Pivel\Hydro2\Models\ErrorMessage;
 use Pivel\Hydro2\Models\HTTP\JsonResponse;
@@ -27,16 +28,19 @@ use Pivel\Hydro2\Views\Identity\VerifyView;
 #[RoutePrefix('api/hydro2/identity/users')]
 class UserController extends BaseController
 {
+    private Hydro2 $_app;
     private ILoggerService $_logger;
     private IIdentityService $_identityService;
     private UserNotificationService $_userNotificationService;
 
     public function __construct(
+        Hydro2 $app,
         ILoggerService $logger,
         IIdentityService $identityService,
         UserNotificationService $userNotificationService,
         Request $request,
     ) {
+        $this->_app = $app;
         $this->_logger = $logger;
         $this->_identityService = $identityService;
         $this->_userNotificationService = $userNotificationService;
@@ -332,6 +336,7 @@ class UserController extends BaseController
         if (!isset($this->request->Args['new_password'])) {
             return new JsonResponse(
                 new ErrorMessage('users-0014', 'Missing argument "new_password"', 'The user\'s new password is missing.'),
+                status: StatusCode::BadRequest,
             );
         }
 
@@ -395,7 +400,7 @@ class UserController extends BaseController
         if (!isset($this->request->Args['token'])) {
             // missing argument
             return new Response(
-                content:$view->Render(),
+                content:$view->Render($this->_app),
             );
         }
 
@@ -403,7 +408,7 @@ class UserController extends BaseController
 
         if ($user === null) {
             return new Response(
-                content:$view->Render(),
+                content:$view->Render($this->_app),
             );
         }
         
@@ -411,7 +416,7 @@ class UserController extends BaseController
 
         if (!$user->ValidateEmailVerificationToken($this->request->Args['token'])) {
             return new Response(
-                content:$view->Render(),
+                content:$view->Render($this->_app),
             );
         }
 
@@ -441,7 +446,7 @@ class UserController extends BaseController
         $view->SetIsValid(true);
 
         return new Response(
-            content:$view->Render(),
+            content:$view->Render($this->_app),
         );
     }
 
@@ -452,14 +457,14 @@ class UserController extends BaseController
         if (!isset($this->request->Args['token'])) {
             // missing argument
             return new Response(
-                content:$view->Render(),
+                content:$view->Render($this->_app),
             );
         }
 
         $user = $this->_identityService->GetUserFromId($this->request->Args['uuid']??'');
         if ($user === null) {
             return new Response(
-                content:$view->Render(),
+                content:$view->Render($this->_app),
             );
         }
         
@@ -467,7 +472,7 @@ class UserController extends BaseController
 
         if (!$user->CheckPasswordResetToken($this->request->Args['token']??'')) {
             return new Response(
-                content:$view->Render(),
+                content:$view->Render($this->_app),
             );
         }
 
@@ -475,7 +480,7 @@ class UserController extends BaseController
         $view->SetIsValid(true);
 
         return new Response(
-            content:$view->Render(),
+            content:$view->Render($this->_app),
         );
     }
 }

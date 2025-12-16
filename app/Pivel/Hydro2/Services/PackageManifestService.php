@@ -7,13 +7,15 @@ use Pivel\Hydro2\Hydro2;
 
 class PackageManifestService
 {
+    private Hydro2 $_app;
     private ?array $pkg_manifest = null;
 
     private array $pkgDirs = [];
 
-    public function __construct()
+    public function __construct(Hydro2 $app)
     {
-        $this->pkgDirs = array_merge([Hydro2::$Current->MainAppDir], Hydro2::$Current->AdditionalAppDirs);
+        $this->_app = $app;
+        $this->pkgDirs = array_merge([$this->_app->MainAppDir], $this->_app->AdditionalAppDirs);
     }
 
     public function GetPackageManifest() : array {

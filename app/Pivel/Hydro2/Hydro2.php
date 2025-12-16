@@ -2,12 +2,16 @@
 
 namespace Pivel\Hydro2;
 
+use Deprecated;
 use Error;
 use Exception;
-use JetBrains\PhpStorm\Deprecated;
+use PHPUnit\Util\Json;
 use Pivel\Hydro2\Models\EntityPersistenceProfile;
+use Pivel\Hydro2\Models\ErrorMessage;
+use Pivel\Hydro2\Models\HTTP\JsonResponse;
 use Pivel\Hydro2\Models\HTTP\Request;
 use Pivel\Hydro2\Models\HTTP\Response;
+use Pivel\Hydro2\Models\HTTP\StatusCode;
 use Pivel\Hydro2\Services\AutoloadService;
 use Pivel\Hydro2\Services\Entity\EntityRepository;
 use Pivel\Hydro2\Services\Entity\EntityService;
@@ -34,26 +38,22 @@ class Hydro2
         $appDir ??= dirname(__FILE__, 3);
         $webDir ??= dirname(__FILE__, 4) . DIRECTORY_SEPARATOR . '/web';
 
-        self::$Current = new Hydro2($webDir, $appDir, $additionalAppDirs);
-        self::$Current->RegisterAutoloader();
+        $app = new Hydro2($webDir, $appDir, $additionalAppDirs);
+        $app->RegisterAutoloader();
 
-        self::$Current->RegisterSingleton(PackageManifestService::class);
-        self::$Current->RegisterSingleton(RouterService::class);
-        self::$Current->RegisterSingleton(LoggerService::class, ILoggerService::class);
-        self::$Current->RegisterSingleton(EnvironmentService::class, IEnvironmentService::class);
-
+        $app->RegisterSingleton(PackageManifestService::class);
+        $app->RegisterSingleton(RouterService::class);
+        $app->RegisterSingleton(LoggerService::class, ILoggerService::class);
+        $app->RegisterSingleton(EnvironmentService::class, IEnvironmentService::class);
         
-        self::$Current->ResolveLoggerService(ILoggerService::class);
-        self::$Current->ResolveManifestService(PackageManifestService::class);
-        self::$Current->ResolveRouterService(RouterService::class);
+        $app->ResolveLoggerService(ILoggerService::class);
+        $app->ResolveManifestService(PackageManifestService::class);
+        $app->ResolveRouterService(RouterService::class);
 
-        self::$Current->RestoreOrRegisterManifestDI();
+        $app->RestoreOrRegisterManifestDI();
 
-        return self::$Current;
+        return $app;
     }
-
-    #[Deprecated(reason: 'use dependency injection with arg type Hydro2 instead.')]
-    public static Hydro2 $Current;
 
     private AutoloadService $_autoloadService;
     private PackageManifestService $_manifestService;
@@ -113,10 +113,8 @@ class Hydro2
     }
 
     /**
-     * @param T $classOrInterface
-     * The name of the class or interface to resolve. Returns null if not registered.
-     * @param mixed[] $args
-     * Array of args to pass (unpacked) to class' constructor after other dependencies are passed.
+     * @param T $classOrInterface The name of the class or interface to resolve. Returns null if not registered.
+     * @param mixed[] $args Array of args to pass (unpacked) to class' constructor after other dependencies are passed.
      */
     public function ResolveDependency(string $classOrInterface, array $args = []) : ?object
     {
@@ -213,12 +211,14 @@ class Hydro2
 
         if (!$could_load) {
             // routing table hasn't been built yet, so build it
-            //$parsing_start = microtime(true);
-            $this->_loggerService->Warn('Pivel/Hydro2', "Couldn't load routing table.");
+            $parsing_start = microtime(true);
+            $this->_loggerService->Warn('Pivel/Hydro2', "Couldn't load routing table, building a new one...");
+
             $this->_routerService->RegisterRoutesFromAttributes();
-            //$parsing_end = microtime(true);
-            //echo 'Took ' . ($parsing_end - $parsing_start) * 1000 . 'ms to build a new routing table.';
             $this->_routerService->SaveRoutes();
+
+            $parsing_end = microtime(true);
+            $this->_loggerService->Info('Pivel/Hydro2', "Took " . ($parsing_end - $parsing_start) * 1000 . " ms to build a new routing table.");
         }
 
         // search for match(es) in routing table
@@ -238,22 +238,19 @@ class Hydro2
             $controller = $this->ResolveDependency($matched_route['controller_class'], [$request]);
             $method_name = $matched_route['controller_method'];
             
-            //try {
+            try {
                 $result = $controller->$method_name();
-            /*} catch (Exception $e) {
+            } catch (Exception $e) {
+                $this->_loggerService->Error('Pivel/Hydro2', "Exception in route handler {$matched_route['controller_class']}::{$method_name}: {$e->getMessage()}\n{$e->getTraceAsString()}");
                 $result = new JsonResponse(
-                    [
-                        'exception' => [
-                            'message' => $e->getMessage(),
-                            'code' => $e->getCode(),
-                            'controller' => $matched_route['controller_class'],
-                            'method' => $method_name,
-                        ],
-                    ],
+                    new ErrorMessage(
+                        'hydro2-0001',
+                        'An internal server error occurred while processing the request.',
+                        "Exception in route handler {$matched_route['controller_class']}::{$method_name}",
+                    ),
                     StatusCode::InternalServerError,
-                    "An exception occurred while executing a route handler."
                 );
-            }*/
+            }
 
             if ($result instanceof Response) {
                 $response->append($result);
@@ -270,37 +267,17 @@ class Hydro2
 
     public function Run() : self
     {
-        // Test entity service
-        /*
-        $this->_loggerService->Debug('Pivel/Hydro2', "Starting tests for new entity service...");
-        /** @var ?IEntityService /
-        $entityService = null;
-        try {
-            /** @var ?IEntityService /
-            $entityService = $this->ResolveDependency(IEntityService::class);
-        } catch (Exception $e) {
-            $this->_loggerService->Error('Pivel/Hydro2', "Exception while starting entity service: {$e->getMessage()}");
-        }/* catch (Error $e) {
-            $this->_loggerService->Error('Pivel/Hydro2', "Error while starting entity service: {$e->getMessage()}");
-        }/
-
-        if ($entityService == null) {
-            $this->_loggerService->Error('Pivel/Hydro2', "Couldn't obtain entity service.");
-        } else {
-            /** @var EntityRepository<EntityPersistenceProfile> /
-            $r = $entityService->GetRepository(EntityPersistenceProfile::class);
-            $c = $r->Count();
-            $this->_loggerService->Debug('Pivel/Hydro2', "There are {$c} persistence profiles.");
-            $newProfile = new EntityPersistenceProfile('primary');
-            $r->Update($newProfile);
-        }*/
-
         // Process incoming request
+        $run_start = microtime(true);
         $request = $this->buildRequest();
         $this->_loggerService->Info('Pivel/Hydro2', "{$request->method->value} {$request->getClientAddress()} {$request->endpoint}");
+
         $response = $this->processRequest($request);
         $response->send(false);
-        $this->_loggerService->Info('Pivel/Hydro2', "Sent response for {$request->endpoint}");
+
+        $run_end = microtime(true);
+        $elapsed_time = number_format(($run_end - $run_start) * 1000, 3);
+        $this->_loggerService->Info('Pivel/Hydro2', "Sent response ({$elapsed_time}ms) for {$request->endpoint}");
 
         return $this;
     }

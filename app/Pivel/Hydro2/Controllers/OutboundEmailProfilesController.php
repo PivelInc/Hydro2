@@ -12,6 +12,7 @@ use Pivel\Hydro2\Extensions\Query;
 use Pivel\Hydro2\Models\HTTP\Method;
 use Pivel\Hydro2\Extensions\Route;
 use Pivel\Hydro2\Extensions\RoutePrefix;
+use Pivel\Hydro2\Hydro2;
 use Pivel\Hydro2\Models\Database\Order;
 use Pivel\Hydro2\Models\Email\EmailAddress;
 use Pivel\Hydro2\Models\Email\EmailMessage;
@@ -30,16 +31,19 @@ use Pivel\Hydro2\Views\EmailViews\TestEmailView;
 #[RoutePrefix('api/hydro2/email/outboundprofiles')]
 class OutboundEmailProfilesController extends BaseController
 {
+    protected Hydro2 $_app;
     protected IEntityService $_entityService;
     protected IdentityService $_identityService;
     protected EmailService $_emailService;
 
     public function __construct(
+        Hydro2 $app,
         IEntityService $entityService,
         IdentityService $identityService,
         EmailService $emailService,
         Request $request,
     ) {
+        $this->_app = $app;
         $this->_entityService = $entityService;
         $this->_identityService = $identityService;
         $this->_emailService = $emailService;
@@ -241,12 +245,7 @@ class OutboundEmailProfilesController extends BaseController
             return new Response(status: StatusCode::NotFound);
         }
 
-        if (!isset($this->request->Args['to'])) {
-            return new JsonResponse(
-                new ErrorMessage('emailprofiles-0006', 'Missing parameter \"to\"', 'A destination address was not provided.'),
-                status: StatusCode::BadRequest,
-            );
-        }
+        $destination = isset($this->request->Args['to']) ?? $requestUser->Email;
 
         $r = $this->_entityService->GetRepository(OutboundEmailProfile::class);
 
@@ -270,7 +269,7 @@ class OutboundEmailProfilesController extends BaseController
         }
 
         $emailView = new TestEmailView($this->request->Args['key']);
-        $message = new EmailMessage($emailView, [new EmailAddress($this->request->Args['to'])]);
+        $message = new EmailMessage($emailView, $this->_app, [$destination]);
 
         $result = false;
         try {

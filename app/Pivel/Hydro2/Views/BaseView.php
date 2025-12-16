@@ -12,7 +12,7 @@ class BaseView
     protected array $properties;
     protected array $viewClassesUsed = [];
 
-    public function Render($isOuter=true) : string {
+    public function Render(Hydro2 $app, bool $isOuter=true) : string {
         // load template from View attribute? or just look for template with matching class name?
         $this->rc = new ReflectionClass($this);
         $this->properties = array_map(fn($a) => $a->name,$this->rc->getProperties());
@@ -27,7 +27,7 @@ class BaseView
         $this->viewClassesUsed = array_reverse($this->viewClassesUsed);
         $templatePath = str_replace('.php','.template.html', $this->rc->getFileName());
         $template = file_get_contents($templatePath);
-        $rendered = $this->ResolveTemplate($template);
+        $rendered = $this->ResolveTemplate($app, $template);
         $renderedContent = $rendered['content'];
         return $renderedContent;
     }
@@ -36,7 +36,7 @@ class BaseView
         return array_unique($this->viewClassesUsed);
     }
 
-    protected function ResolveTemplate(string $template) : array {
+    protected function ResolveTemplate(Hydro2 $app, string $template) : array {
         // template placeholder format
         // {{name:space:class|arg1,"arg2",$vararg3}}
         // {{arg1}}
@@ -199,7 +199,7 @@ class BaseView
 
                     // resolve any child tags in the current content before we process.
                     if ($debug) {echo "resolving tag content<br />\n<blockquote>";}
-                    $r = $this->ResolveTemplate($tagContent);
+                    $r = $this->ResolveTemplate($app, $tagContent);
                     if ($debug) {echo "</blockquote>done<br />\n";}
                     $tagContent = $r['content'];
                     $tagContentArgs = $r['args'];
@@ -225,7 +225,7 @@ class BaseView
                             $r = '';
                             foreach ($sectionValue as $v) {
                                 if ($v instanceof BaseView) {
-                                    $r .= $v->Render(isOuter:false);
+                                    $r .= $v->Render($app, isOuter:false);
                                     $this->viewClassesUsed = array_merge($this->viewClassesUsed, $v->GetViewClassesUsed());
                                 } else {
                                     $r .= $v;
@@ -236,14 +236,14 @@ class BaseView
                             // if property type extends BaseView, render first then replace
                             // TODO: need to prevent circular inclusions
                             if ($sectionValue instanceof BaseView) {
-                                $sectionValue = $this->$sectionName->Render();
+                                $sectionValue = $this->$sectionName->Render($app);
                                 $this->viewClassesUsed = array_merge($this->viewClassesUsed, $this->$sectionName->GetViewClassesUsed());
                             }
                         }
                     } else {
                         // resolve any child tags in the current content before we process.
                         if ($debug) {echo "resolving tag content<br />\n<blockquote>";}
-                        $r = $this->ResolveTemplate($tagContent);
+                        $r = $this->ResolveTemplate($app,$tagContent);
                         if ($debug) {echo "</blockquote>done<br />\n";}
                         $tagContent = $r['content'];
                         $tagContentArgs = $r['args'];
@@ -344,7 +344,7 @@ class BaseView
 
                     // resolve any child tags in the current content before we process.
                     if ($debug) {echo "resolving tag content<br />\n<blockquote>";}
-                    $r = $this->ResolveTemplate($tagContent);
+                    $r = $this->ResolveTemplate($app, $tagContent);
                     if ($debug) {echo "</blockquote>done<br />\n";}
                     $tagContent = $r['content'];
                     $tagContentArgs = $r['args'];
@@ -358,7 +358,7 @@ class BaseView
                     // -> instantiate the View object, render, and return result.
                     // TODO prevent circular inclusion
                     try {
-                        $instance = Hydro2::$Current->ResolveDependency($viewClass->name, $viewArgs);
+                        $instance = $app->ResolveDependency($viewClass->name, $viewArgs);
                     } catch (ReflectionException) {
                         // there are more that 0 args and the class does not have a public constructor
                         $result = '';
@@ -375,7 +375,7 @@ class BaseView
                         break;
                     }
 
-                    $result = $instance->Render(isOuter:false);
+                    $result = $instance->Render($app, isOuter:false);
                     $this->viewClassesUsed = array_merge($this->viewClassesUsed, $instance->GetViewClassesUsed());
                     $template = substr_replace($template, $result, $tagStartingPos, ($cursor-$tagStartingPos));
                     $cursor = $tagStartingPos + strlen($result);
@@ -405,7 +405,7 @@ class BaseView
                     if ($lastIfEvaluation) {
                         // resolve any child tags in the current content before we process.
                         if ($debug) {echo "resolving tag content<br />\n<blockquote>";}
-                        $r = $this->ResolveTemplate($tagContent);
+                        $r = $this->ResolveTemplate($app, $tagContent);
                         if ($debug) {echo "</blockquote>done<br />\n";}
                         $result = $r['content'];
                         $tagContentArgs = $r['args'];
@@ -420,7 +420,7 @@ class BaseView
                     if (!$lastIfEvaluation) {
                         // resolve any child tags in the current content before we process.
                         if ($debug) {echo "resolving tag content<br />\n<blockquote>";}
-                        $r = $this->ResolveTemplate($tagContent);
+                        $r = $this->ResolveTemplate($app, $tagContent);
                         if ($debug) {echo "</blockquote>done<br />\n";}
                         $result = $r['content'];
                         $tagContentArgs = $r['args'];

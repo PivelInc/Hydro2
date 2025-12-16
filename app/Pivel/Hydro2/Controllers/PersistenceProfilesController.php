@@ -96,10 +96,10 @@ class PersistenceProfilesController extends BaseController
             );
         }
 
-        $profile = new EntityPersistenceProfile();
-        $profile->SetProfile(
-            persistenceProviderClass: $this->request->Args['provider'],
-            hostOrPath: $this->request->Args['host'],
+        $profile = new EntityPersistenceProfile(
+            'validation_test',
+            $this->request->Args['host'],
+            $this->request->Args['provider'],
         );
 
         if (!$this->_entityService->IsHostValid($profile)) {
@@ -145,10 +145,10 @@ class PersistenceProfilesController extends BaseController
             );
         }
 
-        $profile = new EntityPersistenceProfile();
-        $profile->SetProfile(
-            persistenceProviderClass: $this->request->Args['provider'],
-            hostOrPath: $this->request->Args['host'],
+        $profile = new EntityPersistenceProfile(
+            'validation_test',
+            $this->request->Args['host'],
+            $this->request->Args['provider'],
             username: $this->request->Args['username'] ?? null,
             password: $this->request->Args['password'] ?? null,
         );
@@ -211,10 +211,10 @@ class PersistenceProfilesController extends BaseController
             );
         }
 
-        $profile = new EntityPersistenceProfile($this->request->Args['key']??'primary');
-        $profile->SetProfile(
-            persistenceProviderClass: $this->request->Args['provider'],
-            hostOrPath: $this->request->Args['host'],
+        $profile = new EntityPersistenceProfile(
+            $this->request->Args['key']??'primary',
+            $this->request->Args['host'],
+            $this->request->Args['provider'],
             username: $this->request->Args['username'] ?? null,
             password: $this->request->Args['password'] ?? null,
             databaseSchema: $this->request->Args['database'] ?? null,

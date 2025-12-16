@@ -8,13 +8,16 @@ use Pivel\Hydro2\Hydro2;
 
 class LoggerService implements ILoggerService
 {
+    private Hydro2 $_app;
+    
     private string $logFilePath;
     private int $logFileSizeLimit;
 
     // fields: date time
-    public function __construct()
+    public function __construct(Hydro2 $app)
     {
-        $this->logFilePath = Hydro2::$Current->MainAppDir . DIRECTORY_SEPARATOR . '.logs';
+        $this->_app = $app;
+        $this->logFilePath = $this->_app->MainAppDir . DIRECTORY_SEPARATOR . '.logs';
         $this->logFileSizeLimit = 10*1024*1024; // 10 MB
 
         if (!is_dir($this->logFilePath)) {

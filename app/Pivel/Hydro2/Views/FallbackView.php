@@ -8,10 +8,10 @@ use Pivel\Hydro2\Services\PackageManifestService;
 class FallbackView extends BaseWebView
 {
     public function __construct(
+        PackageManifestService $packageManifestService,
         protected ?string $CoreVersion=null,
     ) {
-        $manifestService = Hydro2::$Current->ResolveDependency(PackageManifestService::class);
-        $v = $manifestService->GetPackageManifest()['Pivel']['Hydro2']['version'];
+        $v = $packageManifestService->GetPackageManifest()['Pivel']['Hydro2']['version'];
         $this->CoreVersion = join('.', $v);
     }
 }
