@@ -12,6 +12,7 @@ use Pivel\Hydro2\Attributes\Entity\ForeignEntityManyToOne;
 use Pivel\Hydro2\Attributes\Entity\ForeignEntityOneToMany;
 use Pivel\Hydro2\Extensions\Query;
 use Pivel\Hydro2\Models\Database\Order;
+use Pivel\Hydro2\Models\Uuid;
 use Pivel\Hydro2\Services\Entity\EntityCollection;
 
 #[Entity(CollectionName: 'hydro2_users')]
@@ -19,7 +20,7 @@ class User implements JsonSerializable
 {
     #[EntityField(FieldName: 'uuid')]
     #[EntityPrimaryKey]
-    public ?string $Id = null;
+    public ?Uuid $Id = null;
     #[EntityField(FieldName: 'inserted')]
     public ?DateTime $InsertedTime = null;
     #[EntityField(FieldName: 'email')]
@@ -65,7 +66,7 @@ class User implements JsonSerializable
     ) {
         $this->Email = $email;
         if ($this->Email !== '') {
-            $this->GenerateId();
+            $this->Id = Uuid::GenerateV4();
             $this->InsertedTime = new DateTime(timezone: new DateTimeZone('UTC'));
         }
         $this->EmailVerified = false;
@@ -127,18 +128,6 @@ class User implements JsonSerializable
     public function SetUserRole(UserRole $role): void
     {
         $this->role = $role;
-    }
-
-    private function GenerateId(): void
-    {
-        $data = random_bytes(16);
-        // Set version to 0100
-        $data[6] = chr(ord($data[6]) & 0x0f | 0x40);
-        // Set bits 6-7 to 10
-        $data[8] = chr(ord($data[8]) & 0x3f | 0x80);
-        // format as Uuid
-        $uuid = vsprintf("%s%s-%s-%s-%s-%s%s%s", str_split(bin2hex($data), 4));
-        $this->Id = $uuid;
     }
 
     public function GetEmailVerificationToken(): string

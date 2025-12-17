@@ -70,7 +70,6 @@ class SortableTable {
     _dataLoadedCallback(response) {
         if (response.Status == H.StatusCode.OK) {
             this._data = response.ResponseObject;
-            console.log(response);
             this._hideSpinner();
             if (this._customRenderer !== null) {
                 this._customRenderer(this);

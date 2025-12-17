@@ -146,6 +146,8 @@ class EntityDefinition implements Iterator, Countable
                     }
                 } else if ($typeName == DateTime::class) {
                     $pFieldAttribute->FieldType = Type::DATETIME;
+                } else if ($typeName == Uuid::class) {
+                    $pFieldAttribute->FieldType = "CHAR(36)"; // UUID
                 } else {
                     // check if this is a class with an Entity tag. If so, this is a foreign key
                     if (!class_exists($typeName)) {

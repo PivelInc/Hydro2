@@ -9,6 +9,7 @@ use Pivel\Hydro2\Exceptions\Database\TableNotFoundException;
 use Pivel\Hydro2\Extensions\Query;
 use Pivel\Hydro2\Models\Database\Type;
 use Pivel\Hydro2\Models\EntityDefinition;
+use Pivel\Hydro2\Models\Uuid;
 use Pivel\Hydro2\Services\ILoggerService;
 use ReflectionClass;
 use ReflectionProperty;
@@ -318,6 +319,9 @@ class EntityRepository implements IEntityRepository
                     $value = new DateTime($value.'+00:00');
                 }
             }
+            if ($field->FieldType == "CHAR(36)" && $field->Property->getType()->getName() == Uuid::class) { // uuid
+                $value = Uuid::ParseFromString($value);
+            }
 
             if (!$field->IsForeignKey) {
                 $field->Property->setValue($entity, $value);
@@ -362,6 +366,10 @@ class EntityRepository implements IEntityRepository
                 } else {
                     $value = $value->format('c');
                 }
+            }
+            if ($field->FieldType == "CHAR(36)" && $field->Property->getType()->getName() == Uuid::class) { // uuid
+                /** @var Uuid $value */
+                $value = (string)$value;
             }
 
             if (!$field->IsForeignKey) {

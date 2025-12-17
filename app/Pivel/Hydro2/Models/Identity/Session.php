@@ -77,6 +77,7 @@ class Session implements JsonSerializable
     {
         return [
             'random_id' => $this->RandomId,
+            'user_uuid' => $this->user->Id,
             'browser' => $this->Browser,
             'start' => $this->StartTime,
             'expire' => $this->ExpireTime,

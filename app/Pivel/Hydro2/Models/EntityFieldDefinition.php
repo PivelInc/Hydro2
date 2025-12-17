@@ -11,7 +11,7 @@ class EntityFieldDefinition
     // TODO definition when foreign field
     public function __construct(
         public string $FieldName,
-        public Type $FieldType,
+        public Type|string $FieldType,
         public ?ReflectionProperty $Property,
         public bool $IsNullable = false,
         public bool $AutoIncrement = false,
