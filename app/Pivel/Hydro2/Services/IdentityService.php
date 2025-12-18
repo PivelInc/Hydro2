@@ -224,9 +224,11 @@ class IdentityService implements IIdentityService
 
     public function StartSession(User $user, Request $request): ?Session
     {
+        $this->_logger->Debug('Pivel/Hydro2', "1-Starting new session for user {$user->Email}.");
         $sessionStarts = new DateTime(timezone:new DateTimeZone('UTC'));
         $sessionExpires = (clone $sessionStarts)->modify("+{$user->GetUserRole()->MaxSessionLengthMinutes} minutes");
         $session2FAExpires = $user->GetUserRole()->ChallengeIntervalMinutes>0?(clone $sessionStarts):null;
+        $this->_logger->Debug('Pivel/Hydro2', "2-Starting new session for user {$user->Email}.");
 
         // create new session
         $session = new Session(
@@ -239,6 +241,8 @@ class IdentityService implements IIdentityService
             startIP: $request->getClientAddress(),
             lastIP: $request->getClientAddress(),
         );
+
+        $this->_logger->Debug('Pivel/Hydro2', "3-Starting new session for user {$user->Email}.");
 
         if (!$this->sessionRepository->Create($session)) {
             $this->_logger->Error('Pivel/Hydro2', "Failed to start a new session for user {$user->Email}.");
