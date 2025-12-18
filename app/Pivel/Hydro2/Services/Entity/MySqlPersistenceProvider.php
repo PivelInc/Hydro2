@@ -252,7 +252,7 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
             fn($k):bool=>in_array($k, $fieldNamesExceptAutoIncrement),
             ARRAY_FILTER_USE_KEY,
         );
-        $columnsString = implode(',',array_map(fn(EntityFieldDefinition $field):string=>"`{$field->FieldName}`",array_keys($fieldValuesExceptAutoIncrement)));
+        $columnsString = implode(',',array_map(fn(string $fieldName):string=>"`{$fieldName}`",array_keys($fieldValuesExceptAutoIncrement)));
         $valuePlaceholdersString = implode(',', array_map(
             fn($v):string=>':'.$v,
             array_keys($fieldValuesExceptAutoIncrement),
