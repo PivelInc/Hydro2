@@ -3,6 +3,7 @@
 namespace Pivel\Hydro2\Services\Entity;
 
 use DateTime;
+use DateTimeZone;
 use Pivel\Hydro2\Attributes\Entity\Entity;
 use Pivel\Hydro2\Attributes\Entity\ForeignEntityOneToMany;
 use Pivel\Hydro2\Exceptions\Database\TableNotFoundException;
@@ -364,7 +365,7 @@ class EntityRepository implements IEntityRepository
                 if ($field->IsNullable && $value == null) {
                     $value = null;
                 } else {
-                    $value = $value->format('Y-m-d H:i:s');
+                    $value = $value->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
                 }
             }
             if ($field->FieldType == "CHAR(36)" && $field->Property->getType()->getName() == Uuid::class) { // uuid
