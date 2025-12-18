@@ -372,6 +372,10 @@ class EntityRepository implements IEntityRepository
                 $value = (string)$value;
             }
 
+            if ($field->FieldType == Type::BOOLEAN) {
+                $value = $value ? 1 : 0;
+            }
+
             if (!$field->IsForeignKey) {
                 $values[$field->FieldName] = $value;
                 continue;
