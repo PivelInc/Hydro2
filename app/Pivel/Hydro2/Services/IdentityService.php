@@ -241,6 +241,7 @@ class IdentityService implements IIdentityService
         );
 
         if (!$this->sessionRepository->Create($session)) {
+            $this->_logger->Error('Pivel/Hydro2', "Failed to start a new session for user {$user->Email}.");
             return null;
         }
 
