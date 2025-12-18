@@ -54,9 +54,6 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
                 $this->password,
             );
             $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-            // Sqlite disables foreign keys by default; they must be enabled in each session.
-            $stmt = $this->pdo->prepare("PRAGMA foreign_keys = ON;");
-            $stmt->execute();
         } catch(PDOException $e) {
             if ($e->errorInfo[0] == 'HY000' && $e->errorInfo[1] == 2002) {
                 throw new HostNotFoundException($e->getMessage(), 0);
@@ -183,7 +180,7 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
             $columnStructureString .= ','.$constraintStructureString;
         }
 
-        $stmt = $this->pdo->prepare("CREATE TABLE IF NOT EXISTS {$collection->GetName()} ({$columnStructureString})");
+        $stmt = $this->pdo->prepare("CREATE TABLE IF NOT EXISTS `{$collection->GetName()}` ({$columnStructureString})");
         $stmt->execute();
 
         return true;
@@ -193,11 +190,11 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
     public function Select(EntityDefinition $collection, ?Query $query) : array
     {
         if (!$this->OpenConnection()) {
-            return false;
+            return [];
         }
 
-        $columnsString = implode(',',array_map(fn(EntityFieldDefinition $field):string=>$field->FieldName,$collection->GetFields()));
-        $queryString = 'SELECT '.$columnsString.' FROM '.$collection->GetName();
+        $columnsString = implode(',',array_map(fn(EntityFieldDefinition $field):string=>"`{$field->FieldName}`",$collection->GetFields()));
+        $queryString = 'SELECT '.$columnsString.' FROM `'.$collection->GetName().'`';
         $queryString .= self::GetWhereStringFromQuery($query);
         $queryString .= self::GetOrderStringFromQuery($query);
         $queryString .= (($query->GetLimit()<=-1&&$query->GetOffset()==0)?'':' LIMIT '.($query->GetOffset()==0?'':''.$query->GetOffset().', ').$query->GetLimit());
@@ -221,12 +218,12 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
             return false;
         }
         
-        $queryString = 'SELECT COUNT(*) FROM '.$collection->GetName();
+        $queryString = 'SELECT COUNT(*) FROM `'.$collection->GetName().'`';
         $queryString .= self::GetWhereStringFromQuery($query);
         try {
             $stmt = $this->pdo->prepare($queryString);
             $stmt->execute($query==null?[]:$query->GetFilterParameters());
-            return $stmt->fetchAll();
+            return $stmt->fetchAll()[0][0];
         } catch (PDOException $e) {
             if ($e->errorInfo[0] == '42S02') {
                 throw new TableNotFoundException($e->getMessage(), 0);
@@ -234,7 +231,6 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
                 throw $e;
             }
         }
-        return [];
     }
 
     public function Insert(EntityDefinition $collection, array $fieldValues) : ?int
@@ -256,13 +252,13 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
             fn($k):bool=>in_array($k, $fieldNamesExceptAutoIncrement),
             ARRAY_FILTER_USE_KEY,
         );
-        $columnsString = implode(',', array_keys($fieldValuesExceptAutoIncrement));
+        $columnsString = implode(',',array_map(fn(EntityFieldDefinition $field):string=>"`{$field->FieldName}`",array_keys($fieldValuesExceptAutoIncrement)));
         $valuePlaceholdersString = implode(',', array_map(
             fn($v):string=>':'.$v,
             array_keys($fieldValuesExceptAutoIncrement),
         ));
         try {
-            $stmt = $this->pdo->prepare("INSERT INTO ".$collection->GetName()." (".$columnsString.") VALUES (".$valuePlaceholdersString.")");
+            $stmt = $this->pdo->prepare("INSERT INTO `".$collection->GetName()."` (".$columnsString.") VALUES (".$valuePlaceholdersString.")");
             $stmt->execute($fieldValuesExceptAutoIncrement);
         } catch (PDOException $e) {
             if ($e->errorInfo[0] == '42S02') {
@@ -285,13 +281,13 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
             return null;
         }
 
-        $columnsString = implode(',',array_map(fn(EntityFieldDefinition $field):string=>$field->FieldName,$collection->GetFields()));
+        $columnsString = implode(',',array_map(fn(EntityFieldDefinition $field):string=>"`{$field->FieldName}`",$collection->GetFields()));
         $valuePlaceholdersString = implode(',', array_map(fn($k):string=>':'.$k,array_keys($fieldValues)));
         $pkField = $collection->GetPrimaryKeyField();
         $pkFieldName = $pkField == null ? null : $pkField->FieldName;
         $updateValuesPlaceholderString = implode(',', array_map(fn($k):string=>'`'.$k.'`=:'.$k,array_filter(array_keys($fieldValues),fn($k)=>$k!=$pkFieldName)));
         try {
-            $stmt = $this->pdo->prepare("INSERT INTO ".$collection->GetName()." (".$columnsString.") VALUES (".$valuePlaceholdersString.") ON DUPLICATE KEY UPDATE ".$updateValuesPlaceholderString);
+            $stmt = $this->pdo->prepare("INSERT INTO `".$collection->GetName()."` (".$columnsString.") VALUES (".$valuePlaceholdersString.") ON DUPLICATE KEY UPDATE ".$updateValuesPlaceholderString);
             $stmt->execute($fieldValues);
         } catch (PDOException $e) {
             if ($e->errorInfo[0] == '42S02') {
@@ -335,7 +331,7 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
     // Helpers
     private static function getColumnSQL(EntityFieldDefinition $field) : string {
         // column_name [def] [PRIMARY KEY|FOREIGN KEY]
-        $s = $field->FieldName.' '.$field->FieldType->value.($field->AutoIncrement?' AUTOINCREMENT':'');
+        $s = $field->FieldName.' '.$field->FieldType->value.($field->AutoIncrement?' AUTO_INCREMENT':'');
         return $s;
     }
 
@@ -343,11 +339,11 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
         // column_name [def] [PRIMARY KEY|FOREIGN KEY]
         $constraints = [];
         if ($field->IsPrimaryKey) {
-            $constraints[] = 'PRIMARY KEY ('.$field->FieldName.')';
+            $constraints[] = 'PRIMARY KEY (`'.$field->FieldName.'`)';
         }
 
         if ($field->IsForeignKey) {
-            $s = 'FOREIGN KEY ('.$field->FieldName.') REFERENCES '.$field->ForeignKeyCollectionName.'.'.$field->foreignKeyCollectionFieldName;
+            $s = 'FOREIGN KEY (`'.$field->FieldName.'`) REFERENCES `'.$field->ForeignKeyCollectionName.'`.`'.$field->foreignKeyCollectionFieldName . '`';
             $s .= ' ON UPDATE '.$field->ForeignKeyOnUpdate->value.' ON DELETE '.$field->ForeignKeyOnDelete->value;
             $constraints[] = $s;
         }
@@ -375,7 +371,7 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
     {
         if (isset($filterTree['operator'])) {
             // this is a condition, not a group.
-            return ($filterTree['negated'] ? 'NOT ' : '') . $filterTree['field'] . ' ' . $filterTree['operator'] . ' :' . $filterTree['parameterKey'];
+            return ($filterTree['negated'] ? 'NOT ' : '') . '`' . $filterTree['field'] . '`' . ' ' . $filterTree['operator'] . ' :' . $filterTree['parameterKey'];
         }
 
         $queryString = implode(' ' . $filterTree['booloperator'] . ' ', array_map(function($operand){
@@ -401,7 +397,7 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
         }
 
         return ' ORDER BY ' . implode(',', array_map(function($o){
-            return $o['field'] . ' ' . $o['direction']->value;
+            return '`' . $o['field'] . '` ' . $o['direction']->value;
         }, $query->GetOrderTree()));
     }
 }

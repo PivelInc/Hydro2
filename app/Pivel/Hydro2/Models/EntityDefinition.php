@@ -174,6 +174,11 @@ class EntityDefinition implements Iterator, Countable
                 }
             }
 
+            // Primary keys can't be TEXT, use VARCHAR(255) instead.
+            if ($pk && $pFieldAttribute->FieldType == Type::TEXT) {
+                $pFieldAttribute->FieldType = "VARCHAR(255)";
+            }
+
             $fkCollectionFieldName = null;
             $fkOnUpdate = ReferenceBehaviour::CASCADE;
             $fkOnDelete = ReferenceBehaviour::RESTRICT;

@@ -188,7 +188,7 @@
                 }
             };
 
-            var email_profiles_table = new RichTable("#email_profiles_table", "/api/hydro2/email/outboundprofiles", email_profiles_table_renderer);
+            var email_profiles_table = new RichTable("#email_profiles_table", "/api/hydro2/email/outboundprofiles", email_profiles_table_renderer, id_key="key");
             email_profiles_table._showDetailHandler = emailProfilesShowDetailCallback;
             email_profiles_table._showEditHandler = emailProfilesShowEditCallback;
             email_profiles_table.AddContextMenuOption("Test", onEmailProfileTest);

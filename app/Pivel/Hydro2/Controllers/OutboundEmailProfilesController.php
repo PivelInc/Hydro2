@@ -129,7 +129,7 @@ class OutboundEmailProfilesController extends BaseController
             username: $this->request->Args['username']??null,
             password: $this->request->Args['password']??null,
             host: $this->request->Args['host']??'localhost',
-            port: $this->request->Args['port']??465,
+            port:  intval($this->request->Args['port']??465),
             secure: $secure,
         );
 
