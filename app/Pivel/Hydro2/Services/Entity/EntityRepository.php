@@ -364,7 +364,7 @@ class EntityRepository implements IEntityRepository
                 if ($field->IsNullable && $value == null) {
                     $value = null;
                 } else {
-                    $value = $value->format('c');
+                    $value = $value->format('Y-m-d H:i:s');
                 }
             }
             if ($field->FieldType == "CHAR(36)" && $field->Property->getType()->getName() == Uuid::class) { // uuid
