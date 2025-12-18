@@ -268,7 +268,8 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
             }
         }
 
-        if ($collection->GetPrimaryKeyField() == null) {
+        // if the collection has a primarykeyfield that has autoincrement, then return what the new id was.
+        if ($collection->GetPrimaryKeyField() == null || !$collection->GetPrimaryKeyField()->AutoIncrement) {
             return null;
         }
 
