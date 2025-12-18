@@ -6,3 +6,4 @@ app/persistenceprofiles.json
 *.log
 tools/
 .phpunit.cache/
+*.bak
