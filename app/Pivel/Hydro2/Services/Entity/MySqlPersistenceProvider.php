@@ -282,7 +282,7 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
             return null;
         }
 
-        $columnsString = implode(',',array_map(fn(EntityFieldDefinition $field):string=>"`{$field->FieldName}`",$collection->GetFields()));
+        $columnsString = implode(',',array_map(fn($k):string=>"`{$k}`",array_keys($fieldValues)));
         $valuePlaceholdersString = implode(',', array_map(fn($k):string=>':'.$k,array_keys($fieldValues)));
         $pkField = $collection->GetPrimaryKeyField();
         $pkFieldName = $pkField == null ? null : $pkField->FieldName;
