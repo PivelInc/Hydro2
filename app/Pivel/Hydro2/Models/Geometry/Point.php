@@ -9,7 +9,7 @@ class Point extends Geometry
     public function __construct(
         public float $X = 0.0,
         public float $Y = 0.0,
-        int $SRID = SRID::Cartesian->value,
+        int $SRID = 0,
     ) {
         $this->SRID = $SRID;
     }
