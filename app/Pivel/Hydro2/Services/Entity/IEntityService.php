@@ -13,6 +13,11 @@ interface IEntityService
     public function GetRepository(string $entityClass): IEntityRepository;
 
     /**
+     * @param class-string<T> $entityClass
+     */
+    public function GetProvider(string $entityClass): IEntityPersistenceProvider;
+
+    /**
      * Create or update a persistence profile.
      */
     public function SavePersistenceProfile(EntityPersistenceProfile $profile): bool;

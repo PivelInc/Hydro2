@@ -4,7 +4,10 @@ namespace Pivel\Hydro2\Extensions;
 
 use DateTime;
 use Pivel\Hydro2\Models\Database\Order;
+use Pivel\Hydro2\Models\EntityFieldDefinition;
+use Pivel\Hydro2\Models\Geometry\Geometry;
 use Pivel\Hydro2\Models\HTTP\Request;
+use Pivel\Hydro2\Services\Entity\IEntityPersistenceProvider;
 
 class Query
 {
@@ -16,6 +19,7 @@ class Query
     public const LESS_THAN = '<';
     public const LESS_THAN_OR_EQUAL = '<=';
     public const LIKE = 'LIKE';
+    public const ST_WITHIN = 'ST_Within';
 
     private int $offset;
     private int $limit;
@@ -39,9 +43,24 @@ class Query
         $this->order = [];
     }
 
-    public function GetFilterParameters() : array
+    public function GetRawFilterParameters() : array
     {
         return $this->filterParameters;
+    }
+
+    public function GetConvertedFilterParameters(IEntityPersistenceProvider $persistence_provider) : array
+    {
+        $convertedParameters = [];
+        foreach ($this->filterParameters as $key => $value) {
+            $field = new EntityFieldDefinition('', null);
+            $field->PropertyType = gettype($value);
+            if ($field->PropertyType === 'object') {
+                $field->PropertyType = $value::class;
+            }
+            $convertedParameters[$key] = $persistence_provider::ConvertValueToStorage($field, $value);
+        }
+
+        return $convertedParameters;
     }
 
     public function GetFilterTree() : array
@@ -67,12 +86,7 @@ class Query
     // filtering. Filter conditions are combined with AND.
     private function Condition(string $fieldName, mixed $value, string $operator, bool $negated=false) : Query
     {
-        if (is_a($value, DateTime::class)) {
-            // convert DateTime to ISO 8601 date string
-            $value = $value->format('c');
-        }
-
-        $parameterKey = 'p' . $this::$nextParameterNumber++;
+        $parameterKey = 'p' . self::$nextParameterNumber++;
         $this->filterParameters[$parameterKey] = $value;
 
         $this->filterTree['operands'][] = [
@@ -80,6 +94,7 @@ class Query
             'negated' => $negated,
             'field' => $fieldName,
             'parameterKey' => $parameterKey,
+            'parameterValue' => $value,
         ];
         return $this;
     }
@@ -130,13 +145,22 @@ class Query
         return $this->Condition($fieldName, $pattern, self::LIKE, true);
     }
 
+    // spatial operators
+
+    public function SpatialWithin(string $fieldName, Geometry $geometry) : Query
+    {
+        return $this->Condition($fieldName, $geometry, self::ST_WITHIN);
+    }
+
+    // combination
+
     /**
      * Combines the filter tree of another query with AND. The other query's offset, limit, and order are used.
      */
     public function And(Query $query): Query
     {
         $newQuery = clone $this;
-        $newQuery->filterParameters = array_merge($this->filterParameters, $query->GetFilterParameters());
+        $newQuery->filterParameters = array_merge($this->filterParameters, $query->GetRawFilterParameters());
         $newQuery->filterTree['operands'] = array_merge($this->filterTree['operands'], $query->GetFilterTree()['operands']);
         $newQuery->Slice($query->GetOffset(), $query->GetLimit());
         $newQuery->order = $query->GetOrderTree();
@@ -150,7 +174,7 @@ class Query
     public function Or(Query $query): Query
     {
         $newQuery = clone $this;
-        $newQuery->filterParameters = array_merge($this->filterParameters, $query->GetFilterParameters());
+        $newQuery->filterParameters = array_merge($this->filterParameters, $query->GetRawFilterParameters());
         $newQuery->filterTree = [
             'booloperator' => self::AND,
             'operands' => [

@@ -5,6 +5,7 @@ namespace Pivel\Hydro2\Services\Entity;
 use Pivel\Hydro2\Exceptions\Database\TableNotFoundException;
 use Pivel\Hydro2\Extensions\Query;
 use Pivel\Hydro2\Models\EntityDefinition;
+use Pivel\Hydro2\Models\EntityFieldDefinition;
 use Pivel\Hydro2\Models\EntityPersistenceProfile;
 
 interface IEntityPersistenceProvider
@@ -99,4 +100,7 @@ interface IEntityPersistenceProvider
      * @throws TableNotFoundException
      */
     public function Delete(EntityDefinition $collection, Query $query) : int;
+
+    public static function ConvertValueToStorage(EntityFieldDefinition $field, mixed $value): mixed;
+    public static function ConvertValueFromStorage(EntityFieldDefinition $field, mixed $value): mixed;
 }

@@ -2,15 +2,23 @@
 
 namespace Pivel\Hydro2\Services\Entity;
 
+use DateTime;
+use DateTimeZone;
 use PDO;
 use PDOException;
 use Pivel\Hydro2\Exceptions\Database\HostNotFoundException;
 use Pivel\Hydro2\Exceptions\Database\InvalidUserException;
 use Pivel\Hydro2\Exceptions\Database\TableNotFoundException;
 use Pivel\Hydro2\Extensions\Query;
+use Pivel\Hydro2\Models\Database\Type;
 use Pivel\Hydro2\Models\EntityDefinition;
 use Pivel\Hydro2\Models\EntityFieldDefinition;
 use Pivel\Hydro2\Models\EntityPersistenceProfile;
+use Pivel\Hydro2\Models\Geometry\Geometry;
+use Pivel\Hydro2\Models\Geometry\LineString;
+use Pivel\Hydro2\Models\Geometry\Point;
+use Pivel\Hydro2\Models\Geometry\Polygon;
+use Pivel\Hydro2\Models\Uuid;
 
 class MySqlPersistenceProvider implements IEntityPersistenceProvider
 {
@@ -198,9 +206,11 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
         $queryString .= self::GetWhereStringFromQuery($query);
         $queryString .= self::GetOrderStringFromQuery($query);
         $queryString .= (($query->GetLimit()<=-1&&$query->GetOffset()==0)?'':' LIMIT '.($query->GetOffset()==0?'':''.$query->GetOffset().', ').$query->GetLimit());
+        $queryParams = $query==null?[]:$query->GetConvertedFilterParameters($this);
+        $queryParams = self::RemoveExtraParams($queryParams, $queryString);
         try {
             $stmt = $this->pdo->prepare($queryString);
-            $stmt->execute($query==null?[]:$query->GetFilterParameters());
+            $stmt->execute($queryParams);
             return $stmt->fetchAll();
         } catch (PDOException $e) {
             if ($e->errorInfo[0] == '42S02') {
@@ -222,7 +232,7 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
         $queryString .= self::GetWhereStringFromQuery($query);
         try {
             $stmt = $this->pdo->prepare($queryString);
-            $stmt->execute($query==null?[]:$query->GetFilterParameters());
+            $stmt->execute($query==null?[]:$query->GetConvertedFilterParameters($this));
             return $stmt->fetchAll()[0][0];
         } catch (PDOException $e) {
             if ($e->errorInfo[0] == '42S02') {
@@ -254,12 +264,23 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
         );
         $columnsString = implode(',',array_map(fn(string $fieldName):string=>"`{$fieldName}`",array_keys($fieldValuesExceptAutoIncrement)));
         $valuePlaceholdersString = implode(',', array_map(
-            fn($v):string=>':'.$v,
+            function($k) use ($collection, $fieldValuesExceptAutoIncrement):string {
+                $field = $collection->GetFieldByFieldName($k);
+                if (is_subclass_of($field->PropertyType, Geometry::class) && $fieldValuesExceptAutoIncrement[$k] !== null) {
+                    // this field has been converted and contains statement/functions.
+                    // include directly instead since can't bind statment elements
+                    /** @var Geometry $value */
+                    return $fieldValuesExceptAutoIncrement[$k];
+                }
+                return ':'.$k;
+            },
             array_keys($fieldValuesExceptAutoIncrement),
         ));
+        $queryString = "INSERT INTO `".$collection->GetName()."` (".$columnsString.") VALUES (".$valuePlaceholdersString.")";
+        $queryParams = self::RemoveExtraParams($fieldValuesExceptAutoIncrement, $queryString);
         try {
-            $stmt = $this->pdo->prepare("INSERT INTO `".$collection->GetName()."` (".$columnsString.") VALUES (".$valuePlaceholdersString.")");
-            $stmt->execute($fieldValuesExceptAutoIncrement);
+            $stmt = $this->pdo->prepare($queryString);
+            $stmt->execute($queryParams);
         } catch (PDOException $e) {
             if ($e->errorInfo[0] == '42S02') {
                 throw new TableNotFoundException($e->getMessage(), 0);
@@ -283,13 +304,35 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
         }
 
         $columnsString = implode(',',array_map(fn($k):string=>"`{$k}`",array_keys($fieldValues)));
-        $valuePlaceholdersString = implode(',', array_map(fn($k):string=>':'.$k,array_keys($fieldValues)));
+        $valuePlaceholdersString = implode(',', array_map(function($k) use ($collection, $fieldValues):string {
+            $field = $collection->GetFieldByFieldName($k);
+            if (is_subclass_of($field->PropertyType, Geometry::class) && $fieldValues[$k] !== null) {
+                // this field has been converted and contains statement/functions.
+                // include directly instead since can't bind statment elements
+                /** @var Geometry $value */
+                return $fieldValues[$k];
+            }
+            return ':' . $k;
+        }, array_keys($fieldValues)));
         $pkField = $collection->GetPrimaryKeyField();
         $pkFieldName = $pkField == null ? null : $pkField->FieldName;
-        $updateValuesPlaceholderString = implode(',', array_map(fn($k):string=>'`'.$k.'`=:'.$k,array_filter(array_keys($fieldValues),fn($k)=>$k!=$pkFieldName)));
+        $updateValuesPlaceholderString = implode(',', array_map(function($k) use ($collection, $fieldValues):string {
+            $field = $collection->GetFieldByFieldName($k);
+            if (is_subclass_of($field->PropertyType, Geometry::class) && $fieldValues[$k] !== null) {
+                // this field has been converted and contains statement/functions.
+                // include directly instead since can't bind statment elements
+                /** @var Geometry $value */
+                return '`'.$k.'`=' . $fieldValues[$k];
+            }
+            return '`' . $k . '`=:' . $k;
+        },array_filter(array_keys($fieldValues),fn($k)=>$k!=$pkFieldName)));
+        $queryString = "INSERT INTO `".$collection->GetName()."` (".$columnsString.")";
+        $queryString .= " VALUES (".$valuePlaceholdersString.")";
+        $queryString .= " ON DUPLICATE KEY UPDATE ".$updateValuesPlaceholderString;
+        $queryParams = self::RemoveExtraParams($fieldValues, $queryString);
         try {
-            $stmt = $this->pdo->prepare("INSERT INTO `".$collection->GetName()."` (".$columnsString.") VALUES (".$valuePlaceholdersString.") ON DUPLICATE KEY UPDATE ".$updateValuesPlaceholderString);
-            $stmt->execute($fieldValues);
+            $stmt = $this->pdo->prepare($queryString);
+            $stmt->execute($queryParams);
         } catch (PDOException $e) {
             if ($e->errorInfo[0] == '42S02') {
                 throw new TableNotFoundException($e->getMessage(), 0);
@@ -317,7 +360,7 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
 
         try {
             $stmt = $this->pdo->prepare("DELETE FROM " . $collection->GetName() . self::GetWhereStringFromQuery($query));
-            $stmt->execute($query->GetFilterParameters());
+            $stmt->execute($query->GetConvertedFilterParameters($this));
         } catch (PDOException $e) {
             if ($e->errorInfo[0] == '42S02') {
                 throw new TableNotFoundException($e->getMessage(), 0);
@@ -332,7 +375,7 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
     // Helpers
     private static function getColumnSQL(EntityFieldDefinition $field) : string {
         // column_name [def] [PRIMARY KEY|FOREIGN KEY]
-        $s = $field->FieldName.' '.$field->FieldType->value.($field->AutoIncrement?' AUTO_INCREMENT':'');
+        $s = $field->FieldName . ' '. self::GetSQLType($field) . ($field->AutoIncrement?' AUTO_INCREMENT':'');
         return $s;
     }
 
@@ -343,8 +386,8 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
             $constraints[] = 'PRIMARY KEY (`'.$field->FieldName.'`)';
         }
 
-        if ($field->IsForeignKey) {
-            $s = 'FOREIGN KEY (`'.$field->FieldName.'`) REFERENCES `'.$field->ForeignKeyCollectionName.'`.`'.$field->foreignKeyCollectionFieldName . '`';
+        if ($field->IsForeignKey && $field->ForeignKeyCollectionField !== null) {
+            $s = 'FOREIGN KEY (`'.$field->FieldName.'`) REFERENCES `'.$field->ForeignKeyCollectionName.'` (`'.$field->ForeignKeyCollectionField->FieldName . '`)';
             $s .= ' ON UPDATE '.$field->ForeignKeyOnUpdate->value.' ON DELETE '.$field->ForeignKeyOnDelete->value;
             $constraints[] = $s;
         }
@@ -352,7 +395,6 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
         return implode(',', $constraints);
     }
 
-    //self::GetWhereStringFromQuery($query); // ($query->GetFilterTree()==null?'':' '.$where->GetParameterizedQueryString());
     private static function GetWhereStringFromQuery(?Query $query) : string
     {
         if ($query === null) {
@@ -372,6 +414,15 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
     {
         if (isset($filterTree['operator'])) {
             // this is a condition, not a group.
+            if ($filterTree['operator'] == Query::ST_WITHIN) {
+                $field = new EntityFieldDefinition('', null);
+                $field->PropertyType = gettype($filterTree['parameterValue']);
+                if ($field->PropertyType === 'object') {
+                    $field->PropertyType = $filterTree['parameterValue']::class;
+                }
+                $convertedParameter = self::ConvertValueToStorage($field, $filterTree['parameterValue']);
+                return ($filterTree['negated'] ? 'NOT ' : '') . 'ST_Within(`' . $filterTree['field'] . '`, ' . $convertedParameter . ')';
+            }
             return ($filterTree['negated'] ? 'NOT ' : '') . '`' . $filterTree['field'] . '`' . ' ' . $filterTree['operator'] . ' :' . $filterTree['parameterKey'];
         }
 
@@ -400,5 +451,115 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
         return ' ORDER BY ' . implode(',', array_map(function($o){
             return '`' . $o['field'] . '` ' . $o['direction']->value;
         }, $query->GetOrderTree()));
+    }
+
+    private static function RemoveExtraParams(array $queryParams, string $queryString) : array {
+        // delete elements from queryParam if queryParam=>key is not contained in queryString
+        return array_filter($queryParams, function($k) use ($queryString) {
+            return strpos($queryString, ':' . $k) !== false;
+        }, ARRAY_FILTER_USE_KEY);
+    }
+
+    public static function ConvertValueToStorage(EntityFieldDefinition $field, mixed $value): mixed {
+        $sqlType = self::GetSQLType($field);
+        if ($sqlType == "DATETIME" && $value instanceof DateTime) {
+            /** @var DateTime $value */
+            if ($field->IsNullable && $value == null) {
+                return null;
+            } else {
+                return $value->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+            }
+        }
+
+        if ($value instanceof Uuid && $sqlType == "CHAR(36)") { // uuid
+            /** @var Uuid $value */
+            return (string)$value;
+        }
+
+        if ($sqlType == "BOOLEAN") {
+            return $value ? 1 : 0;
+        }
+
+        if (is_subclass_of($field->PropertyType, Geometry::class) && is_subclass_of($value, Geometry::class)) {
+            /** @var Geometry $value */
+            return "ST_GeomFromText('" . $value->ToWKT() . "'," . $value->SRID . ")";
+        }
+
+        return $value;
+    }
+
+    public static function ConvertValueFromStorage(EntityFieldDefinition $field, mixed $value): mixed {
+        $sqlType = self::GetSQLType($field);
+
+        if ($sqlType == "DATETIME") {
+            if ($field->IsNullable && $value == null) {
+                return null;
+            } else {
+                return new DateTime($value.'+00:00');
+            }
+        }
+
+        if ($field->Property->getType()->getName() == Uuid::class && $sqlType == "CHAR(36)") { // uuid
+            return Uuid::ParseFromString($value);
+        }
+
+        if (is_subclass_of($field->PropertyType, Geometry::class)) {
+            /** @var Geometry $value */
+            return ($field->PropertyType)::FromWKB($value);
+        }
+
+        return $value;
+    }
+
+    private static function GetSQLType(EntityFieldDefinition $field): string {
+        if ($field->IsForeignKey) {
+            return self::GetSQLType($field->ForeignKeyCollectionField);
+        }
+
+        $sqlType = "TEXT";
+        switch ($field->PropertyType) {
+            case 'int':
+                $sqlType = "INT";
+                break;
+            case 'float':
+                $sqlType = "DOUBLE";
+                break;
+            case 'bool':
+                $sqlType = "BOOLEAN";
+                break;
+            case DateTime::class:
+                $sqlType = "DATETIME";
+                break;
+            case Uuid::class:
+                $sqlType = "CHAR(36)"; // UUID
+                break;
+            case 'mixed':
+            case 'string':
+            default:
+                $sqlType = "TEXT";
+        }
+
+        if (is_subclass_of($field->PropertyType, Geometry::class)) {
+            switch ($field->PropertyType) {
+                case Point::class:
+                    $sqlType = 'POINT';
+                    break;
+                case LineString::class:
+                    $sqlType = 'LINESTRING';
+                    break;
+                case Polygon::class:
+                    $sqlType = 'POLYGON';
+                    break;
+                default:
+                    $sqlType = 'GEOMETRY';
+                    break;
+            }
+        }
+
+        if ($field->IsPrimaryKey && $sqlType == "TEXT") {
+            $sqlType = "VARCHAR(255)";
+        }
+
+        return $sqlType;
     }
 }

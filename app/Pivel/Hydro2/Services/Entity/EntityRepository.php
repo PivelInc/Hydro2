@@ -311,18 +311,8 @@ class EntityRepository implements IEntityRepository
 
             $value = $values[$field->FieldName];
 
-            // TODO type conversion
-            // TODO custom class conversions (i.e. Polygon)
-            if ($field->FieldType == Type::DATETIME) {
-                if ($field->IsNullable && $value == null) {
-                    $value = null;
-                } else {
-                    $value = new DateTime($value.'+00:00');
-                }
-            }
-            if ($field->FieldType == "CHAR(36)" && $field->Property->getType()->getName() == Uuid::class) { // uuid
-                $value = Uuid::ParseFromString($value);
-            }
+            // Type conversion is handled by persistence providers
+            $value = $this->_provider::ConvertValueFromStorage($field, $value);
 
             if (!$field->IsForeignKey) {
                 $field->Property->setValue($entity, $value);
@@ -330,7 +320,7 @@ class EntityRepository implements IEntityRepository
             }
 
             $r = $this->_entityService->GetRepository($field->ForeignKeyClassName);
-            $foreignEntities = $r->Read((new Query)->Equal($field->foreignKeyCollectionFieldName, $value));
+            $foreignEntities = $r->Read((new Query)->Equal($field->ForeignKeyCollectionField->FieldName, $value));
             if (count($foreignEntities) == 1) {
                 $field->Property->setValue($entity, $foreignEntities[0]);
             }
@@ -359,23 +349,8 @@ class EntityRepository implements IEntityRepository
         foreach ($this->definition as $field) {
             $value = $field->Property->getValue($entity);
 
-            // TODO type conversion
-            if ($field->FieldType == Type::DATETIME) {
-                /** @var DateTime $value */
-                if ($field->IsNullable && $value == null) {
-                    $value = null;
-                } else {
-                    $value = $value->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
-                }
-            }
-            if ($field->FieldType == "CHAR(36)" && $field->Property->getType()->getName() == Uuid::class) { // uuid
-                /** @var Uuid $value */
-                $value = (string)$value;
-            }
-
-            if ($field->FieldType == Type::BOOLEAN) {
-                $value = $value ? 1 : 0;
-            }
+            // Type conversion is handled by persistence providers
+            $value = $this->_provider::ConvertValueToStorage($field, $value);
 
             if (!$field->IsForeignKey) {
                 $values[$field->FieldName] = $value;

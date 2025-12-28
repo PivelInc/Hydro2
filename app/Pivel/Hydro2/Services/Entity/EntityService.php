@@ -73,7 +73,7 @@ class EntityService implements IEntityService
     /**
      * @param class-string<T> $entityClass
      */
-    private function GetProvider(string $entityClass): IEntityPersistenceProvider
+    public function GetProvider(string $entityClass): IEntityPersistenceProvider
     {
         // determine the entityClass' provider, instatiate it, and return it. Providers are singletons for each entity class.
         $profile = $this->GetPersistenceProfile($entityClass);

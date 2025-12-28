@@ -78,13 +78,12 @@ class EntityDefinition implements Iterator, Countable
             if ($parentPk !== null) {
                 $this->primaryKey = new EntityFieldDefinition(
                     $parentPk->FieldName,
-                    $parentPk->FieldType,
                     $parentPk->Property,
                     IsPrimaryKey: true,
                     IsForeignKey: true,
                     ForeignKeyClassName: $parent,
                     ForeignKeyCollectionName: $this->parentEntity->GetName(),
-                    foreignKeyCollectionFieldName: $parentPk->FieldName,
+                    ForeignKeyCollectionField: $parentPk,
                     ForeignKeyOnUpdate: ReferenceBehaviour::CASCADE,
                     ForeignKeyOnDelete: ReferenceBehaviour::CASCADE, // deleting the parent will also result in deleting children
                 );
@@ -115,50 +114,25 @@ class EntityDefinition implements Iterator, Countable
             $fkRc = null;
             $fkCollectionName = null;
 
-            if ($pFieldAttribute->FieldType === null) {
-                // need to determine the appropriate field type, and whether it is nullable.
-                $type = $property->getType();
-                if ($type === null) {
-                    continue; // a type must be specified either in the attribute or in the entity.
-                }
-                if ($type instanceof ReflectionUnionType) {
-                    $type = $type->getTypes()[0];
-                }
-                $pFieldAttribute->IsNullable = $type->allowsNull();
-                $typeName = $type->getName();
+            // ensure that the property has a type
+            $type = $property->getType();
+            if ($type === null) {
+                continue; // a type must be specified either in the attribute or in the entity.
+            }
+            if ($type instanceof ReflectionUnionType) {
+                continue; // union types not supported
+            }
+            $pFieldAttribute->IsNullable = $type->allowsNull();
 
-                if ($type->isBuiltin()) {
-                    switch ($typeName) {
-                        case 'int':
-                            $pFieldAttribute->FieldType = Type::INT;
-                            break;
-                        case 'float':
-                            $pFieldAttribute->FieldType = Type::FLOAT;
-                            break;
-                        case 'bool':
-                            $pFieldAttribute->FieldType = Type::BOOLEAN;
-                            break;
-                        case 'mixed':
-                        case 'string':
-                        default:
-                            $pFieldAttribute->FieldType = Type::TEXT;
-                            break;
-                    }
-                } else if ($typeName == DateTime::class) {
-                    $pFieldAttribute->FieldType = Type::DATETIME;
-                } else if ($typeName == Uuid::class) {
-                    $pFieldAttribute->FieldType = "CHAR(36)"; // UUID
-                } else {
-                    // check if this is a class with an Entity tag. If so, this is a foreign key
-                    if (!class_exists($typeName)) {
-                        continue; // Type/class doesn't exist.
-                    }
-                    $fkRc = new ReflectionClass($typeName);
-                    $fkRcAttrs = $fkRc->getAttributes(Entity::class);
-                    if (count($fkRcAttrs) != 1) {
-                        echo "not an entity.";
-                        continue; // Class isn't an entity.
-                    }
+            // check if this is a class with an Entity tag. If so, this is a foreign key
+            if (!$type->isBuiltin()) {
+                $typeName = $type->getName();
+                if (!class_exists($typeName)) {
+                    continue; // Type/class doesn't exist.
+                }
+                $fkRc = new ReflectionClass($typeName);
+                $fkRcAttrs = $fkRc->getAttributes(Entity::class);
+                if (count($fkRcAttrs) >= 1) {
                     $isForeignKey = true;
                     $fkClass = $typeName;
                     $fkCollectionName = $fkRcAttrs[0]->newInstance()->CollectionName;
@@ -174,14 +148,10 @@ class EntityDefinition implements Iterator, Countable
                 }
             }
 
-            // Primary keys can't be TEXT, use VARCHAR(255) instead.
-            if ($pk && $pFieldAttribute->FieldType == Type::TEXT) {
-                $pFieldAttribute->FieldType = "VARCHAR(255)";
-            }
-
             $fkCollectionFieldName = null;
             $fkOnUpdate = ReferenceBehaviour::CASCADE;
             $fkOnDelete = ReferenceBehaviour::RESTRICT;
+            $fkPkField = null;
             if ($isForeignKey) {
                 $pFkAttributes = $property->getAttributes(ForeignEntityManyToOne::class);
                 if (count($pFkAttributes) == 1) {
@@ -191,15 +161,14 @@ class EntityDefinition implements Iterator, Countable
                         $fkClass = $pFkAttribute->OtherEntityClass;
                     }
 
-                    $fkCollectionFieldName = $pFkAttribute->OtherEntityFieldName;
-                    if ($fkCollectionFieldName == null || $pFieldAttribute->FieldType == null) {
+                    if ($pFkAttribute->OtherEntityFieldName !== null) {
+                        $fkPkField = (new EntityDefinition($fkClass))->GetFieldByFieldName($pFkAttribute->OtherEntityFieldName);
+                    }
+                    if ($fkPkField == null) {
                         $fkPkField = (new EntityDefinition($fkClass))->GetPrimaryKeyField();
                         if ($fkPkField === null) {
-                            echo 'could not identify inverse field name.';
                             continue; // this is a foreign key, but couldn't identify the inverse field name.
                         }
-                        $fkCollectionFieldName = $fkPkField->FieldName;
-                        $pFieldAttribute->FieldType = $fkPkField->FieldType;
                     }
                 }
             }
@@ -211,7 +180,6 @@ class EntityDefinition implements Iterator, Countable
 
             $field = new EntityFieldDefinition(
                 $pFieldAttribute->FieldName,
-                $pFieldAttribute->FieldType,
                 $property,
                 $pFieldAttribute->IsNullable,
                 $pFieldAttribute->AutoIncrement,
@@ -219,7 +187,7 @@ class EntityDefinition implements Iterator, Countable
                 $isForeignKey,
                 $fkClass,
                 $fkCollectionName,
-                $fkCollectionFieldName,
+                $fkPkField,
                 $fkOnUpdate,
                 $fkOnDelete,
             );
@@ -262,6 +230,17 @@ class EntityDefinition implements Iterator, Countable
     public function GetPrimaryKeyField() : ?EntityFieldDefinition
     {
         return $this->primaryKey;
+    }
+
+    public function GetFieldByFieldName(string $fieldName) : ?EntityFieldDefinition
+    {
+        // loop through $this->fields until $field->FieldName == $fieldName
+        foreach ($this->fields as $field) {
+            if ($field->FieldName == $fieldName) {
+                return $field;
+            }
+        }
+        return null;
     }
 
     public function IsExtendable() : bool
