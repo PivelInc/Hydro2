@@ -48,4 +48,14 @@ class Geometry implements JsonSerializable, JsonDeserializable
     {
         return $this->ToWKT();
     }
+
+    public function GetGeoJSON(): ?array
+    {
+        return null;
+    }
+
+    public static function FromGeoJSON(array $geojson): ?static
+    {
+        return null;
+    }
 }

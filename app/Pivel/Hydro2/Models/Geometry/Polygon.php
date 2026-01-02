@@ -88,4 +88,80 @@ class Polygon extends Geometry
 
         return $polygon;
     }
+
+    public static function FromWKB(string $wkb): ?static
+    {
+        // convert from MySQL WKB format to new LineString
+        $parts = unpack('Vsrid/Corder/Vtype/Vnum_rings', $wkb);
+        // only little-endian supported and must be of type Polygon
+        if ($parts['order'] !== 1 || $parts['type'] !== 3) {
+            // Values from 1 through 7 to indicate Point, LineString, Polygon,
+            //  MultiPoint, MultiLineString, MultiPolygon, and GeometryCollection.
+            return null;
+        }
+        $offset = 4 + 1 + 4 + 4; // initial offset after header
+        $polygon = new Polygon();
+        for ($r = 0; $r < $parts['num_rings']; $r++) {
+            $ringParts = unpack('Vnum_points', $wkb, $offset);
+            $offset += 4;
+            $lineString = new LineString();
+            for ($i = 0; $i < $ringParts['num_points']; $i++) {
+                $pointParts = unpack('ex/ey', $wkb, $offset);
+                $offset += 8 + 8;
+                $point = new Point(
+                    X: $pointParts['x'],
+                    Y: $pointParts['y'],
+                );
+                $lineString->Points[] = $point;
+            }
+            if ($r === 0) {
+                $polygon->ExteriorRings[] = $lineString;
+            } else {
+                $polygon->InteriorRings[] = $lineString;
+            }
+        }
+
+        return $polygon;
+    }
+
+    public function GetGeoJSON(): ?array
+    {
+        return [
+            'type' => 'Polygon',
+            'coordinates' => array_map(function($ring) {
+                return array_map(function($point) {
+                    return [$point->X, $point->Y];
+                }, $ring->Points);
+            }, array_merge($this->ExteriorRings, $this->InteriorRings)),
+        ];
+    }
+
+    public static function FromGeoJSON(array $geojson): ?static
+    {
+        if (!isset($geojson['type']) || $geojson['type'] !== 'Polygon' || !isset($geojson['coordinates']) || !is_array($geojson['coordinates'])) {
+            return null;
+        }
+
+        $polygon = new Polygon();
+        foreach ($geojson['coordinates'] as $index => $ringCoords) {
+            $lineString = new LineString();
+            foreach ($ringCoords as $coord) {
+                if (count($coord) != 2) {
+                    return null;
+                }
+                $point = new Point();
+                $point->X = (float)$coord[0];
+                $point->Y = (float)$coord[1];
+                $lineString->Points[] = $point;
+            }
+
+            if ($index === 0) {
+                $polygon->ExteriorRings[] = $lineString;
+            } else {
+                $polygon->InteriorRings[] = $lineString;
+            }
+        }
+
+        return $polygon;
+    }
 }

@@ -67,7 +67,7 @@ class Point extends Geometry
         $parts = unpack('Vsrid/Corder/Vtype/ex/ey', $wkb);
         // only little-endian supported and must be of type Point
         if ($parts['order'] !== 1 || $parts['type'] !== 1) {
-            // MySQL uses values from 1 through 7 to indicate Point, LineString, Polygon,
+            // Values from 1 through 7 to indicate Point, LineString, Polygon,
             //  MultiPoint, MultiLineString, MultiPolygon, and GeometryCollection.
             return null;
         }
@@ -75,6 +75,28 @@ class Point extends Geometry
             X: $parts['x'],
             Y: $parts['y'],
             SRID: $parts['srid'],
+        );
+    }
+
+    public function GetGeoJSON(): ?array
+    {
+        return [
+            'type' => 'Point',
+            'coordinates' => [$this->X, $this->Y],
+        ];
+    }
+
+    public static function FromGeoJSON(array $geojson): ?static
+    {
+        if (!isset($geojson['type']) || strtoupper($geojson['type']) !== 'POINT') {
+            return null;
+        }
+        if (!isset($geojson['coordinates']) || !is_array($geojson['coordinates']) || count($geojson['coordinates']) != 2) {
+            return null;
+        }
+        return new Point(
+            X: (float)$geojson['coordinates'][0],
+            Y: (float)$geojson['coordinates'][1],
         );
     }
 }
