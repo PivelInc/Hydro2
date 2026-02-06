@@ -324,6 +324,9 @@ class SqlitePersistenceProvider implements IEntityPersistenceProvider
             if ($filterTree['operator'] == Query::ST_WITHIN) {
                 throw new Exception('ST_Within is not supported by SqlitePersistenceProvider.');
             }
+            if ($filterTree['operator'] == Query::ST_CONTAINS) {
+                throw new Exception('ST_Contains is not supported by SqlitePersistenceProvider.');
+            }
             return ($filterTree['negated'] ? 'NOT ' : '') . $filterTree['field'] . ' ' . $filterTree['operator'] . ' :' . $filterTree['parameterKey'];
         }
 

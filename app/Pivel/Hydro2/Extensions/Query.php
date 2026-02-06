@@ -20,6 +20,7 @@ class Query
     public const LESS_THAN_OR_EQUAL = '<=';
     public const LIKE = 'LIKE';
     public const ST_WITHIN = 'ST_Within';
+    public const ST_CONTAINS = 'ST_Contains';
 
     private int $offset;
     private int $limit;
@@ -150,6 +151,11 @@ class Query
     public function SpatialWithin(string $fieldName, Geometry $geometry) : Query
     {
         return $this->Condition($fieldName, $geometry, self::ST_WITHIN);
+    }
+
+    public function SpatialContains(string $fieldName, Geometry $geometry) : Query
+    {
+        return $this->Condition($fieldName, $geometry, self::ST_CONTAINS);
     }
 
     // combination

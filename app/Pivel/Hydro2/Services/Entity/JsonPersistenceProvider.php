@@ -283,10 +283,13 @@ class JsonPersistenceProvider implements IEntityPersistenceProvider
                 $r = (($value == $testValue) xor $neg) ? 'true' : 'false';
                 return ($value == $testValue) xor $neg;
             }
-
             
             if ($filterTree['operator'] == Query::ST_WITHIN) {
                 throw new Exception('ST_Within is not supported by JsonPersistenceProvider.');
+            }
+
+            if ($filterTree['operator'] == Query::ST_CONTAINS) {
+                throw new Exception('ST_Contains is not supported by JsonPersistenceProvider.');
             }
 
             if ($op == Query::GREATER_THAN) {

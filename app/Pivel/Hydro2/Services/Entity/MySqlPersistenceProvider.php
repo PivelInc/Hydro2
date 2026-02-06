@@ -423,6 +423,15 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
                 $convertedParameter = self::ConvertValueToStorage($field, $filterTree['parameterValue']);
                 return ($filterTree['negated'] ? 'NOT ' : '') . 'ST_Within(`' . $filterTree['field'] . '`, ' . $convertedParameter . ')';
             }
+            if ($filterTree['operator'] == Query::ST_CONTAINS) {
+                $field = new EntityFieldDefinition('', null);
+                $field->PropertyType = gettype($filterTree['parameterValue']);
+                if ($field->PropertyType === 'object') {
+                    $field->PropertyType = $filterTree['parameterValue']::class;
+                }
+                $convertedParameter = self::ConvertValueToStorage($field, $filterTree['parameterValue']);
+                return ($filterTree['negated'] ? 'NOT ' : '') . 'ST_Contains(`' . $filterTree['field'] . '`, ' . $convertedParameter . ')';
+            }
             return ($filterTree['negated'] ? 'NOT ' : '') . '`' . $filterTree['field'] . '`' . ' ' . $filterTree['operator'] . ' :' . $filterTree['parameterKey'];
         }
 
