@@ -14,6 +14,7 @@ use Pivel\Hydro2\Models\HTTP\Request;
 use Pivel\Hydro2\Models\HTTP\Response;
 use Pivel\Hydro2\Models\HTTP\StatusCode;
 use Pivel\Hydro2\Models\Identity\User;
+use Pivel\Hydro2\Models\Identity\UserRole;
 use Pivel\Hydro2\Models\Permissions;
 use Pivel\Hydro2\Services\Identity\IIdentityService;
 use Pivel\Hydro2\Services\ILoggerService;
@@ -75,6 +76,87 @@ class UserController extends BaseController
         $users = $this->_identityService->GetUsersMatchingQuery($query);
 
         return new JsonResponse($users);
+    }
+
+    #[Route(Method::CLI, '~CreateAdminUser')]
+    public function CreateAdminUserCLI(): void
+    {
+        // this should only be used on initial setup to create the first user with sufficient permissions to manage users/roles
+        //  or for recovery purposes if unable to access a user account with sufficient privileges.
+        // this function does not create a security vulnerability, because an actor that is able to run this command could also
+        //  just read the database credentials directly.
+        if (!isset($this->request->Args['email']) || !isset($this->request->Args['password'])) {
+            $this->_logger->Error("Pivel/Hydro2", "CreateAdminUser command was run without required arguments. Exiting.");
+            echo("Error: Missing required arguments. Usage: php hydro2 CreateAdminUser email=<email> password=<password>\n");
+            return;
+        }
+        $email = $this->request->Args['email'];
+        $password = $this->request->Args['password'];
+
+        // 1. create a user role with ViewUsers, CreateUsers, ManageUsers, CreateUserRoles, ManageUserRoles, ManageOutboundEmailProfiles
+        //     creating a new user role each time is OK, since it should either be the first/Admin role anyways or the user can delete it later.
+        $this->_logger->Warn("Pivel/Hydro2", "CreateAdminUser command was run. If this was not intentional, please check your server logs and consider changing your database credentials.");
+        $this->_logger->Info("Pivel/Hydro2", "Creating role \"CLI Admin\" with permissions ViewUsers, CreateUsers, ManageUsers, CreateUserRoles, ManageUserRoles, ManageOutboundEmailProfiles...");
+        echo("Creating role \"CLI Admin\" with permissions ViewUsers, CreateUsers, ManageUsers, CreateUserRoles, ManageUserRoles, ManageOutboundEmailProfiles...\n");
+        $role = new UserRole(
+            name: "CLI Admin",
+        );
+        if ($this->_identityService->CreateNewUserRole($role) === null) {
+            $this->_logger->Error("Pivel/Hydro2", "Error creating role. Exiting.");
+            echo("Error creating role. Exiting.\n");
+            return;
+        }
+
+        if (
+            !$role->GrantPermission(Permissions::ViewAdminPanel->value) ||
+            !$role->GrantPermission(Permissions::ViewUsers->value) ||
+            !$role->GrantPermission(Permissions::CreateUsers->value) ||
+            !$role->GrantPermission(Permissions::ManageUsers->value) ||
+            !$role->GrantPermission(Permissions::CreateUserRoles->value) ||
+            !$role->GrantPermission(Permissions::ManageUserRoles->value) ||
+            !$role->GrantPermission(Permissions::ManageOutboundEmailProfiles->value)
+            ) {
+            $this->_logger->Error("Pivel/Hydro2", "Error granting permissions to role. Exiting.");
+            echo("Error granting permissions to role. Exiting.\n");
+            return;
+        }
+
+        $this->_logger->Info("Pivel/Hydro2", "Successfully created role \"CLI Admin\".");
+        echo("Successfully created role \"CLI Admin\".\n");
+
+        // 2. create a user with the user role, with verification manually passed.
+        $this->_logger->Info("Pivel/Hydro2", "Creating user \"CLI Admin\" with email \"{$email}\"...");
+        echo("Creating user with email \"{$email}\"...\n");
+        $user = $this->_identityService->CreateNewUser(
+            email: $email,
+            name: "CLI Admin",
+            role: $role,
+            isEnabled: true,
+        );
+        if ($user === null) {
+            $this->_logger->Error("Pivel/Hydro2", "Error creating user. Exiting.");
+            echo("Error creating user. Exiting.\n");
+            return;
+        }
+        $user->EmailVerified = true;
+        if (!$this->_identityService->UpdateUser($user)) {
+            $this->_logger->Error("Pivel/Hydro2", "Error trying to skip email verification. Exiting.");
+            echo("Error trying to skip email verification. Exiting.\n");
+            return;
+        }
+
+        $createdUser = $this->_identityService->GetUserFromId($user->Id);
+
+        // 3. Set password
+        if (!$createdUser->SetNewPassword($password)) {
+             $this->_logger->Error("Pivel/Hydro2", "Error setting user password. Exiting.");
+             echo("Error setting user password. Exiting.\n");
+             return;
+        }
+        // TODO send an email to a server notifications channel to alert that this command was used
+        
+        $this->_logger->Warn("Pivel/Hydro2", "Successfully created user \"CLI Admin\".");
+        echo("Successfully created user \"CLI Admin\".\n");
     }
 
     #[Route(Method::POST, '')]
