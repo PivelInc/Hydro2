@@ -28,11 +28,16 @@ class Request
     {
         if (substr($sapi_name, 0, 3) == 'cli' || empty($server['REMOTE_ADDR'])) {
             $this->isWeb = false;
+            $this->method = Method::CLI;
             
             global $argv;
             if (isset($argv)) {
-                foreach ($argv as $arg) {
-                    $e=explode("=", $arg, 2);
+                if (count($argv) >= 2) {
+                    // first argument is endpoint.
+                    $this->endpoint = trim($argv[1], " /\"'");
+                }
+                for ($i = 2; $i < count($argv); $i++) {
+                    $e=explode("=", $argv[$i], 2);
                     if(count($e)==2)
                         $this->Args[$e[0]] = $e[1];
 
@@ -40,6 +45,7 @@ class Request
                         $this->Args[$e[0]] = true;
                 }
             }
+            return;
         } else {
             $this->isHttps = isset($server['HTTPS']) && $server['HTTPS'] != 'off';
             $this->hostname = $server["SERVER_NAME"];
