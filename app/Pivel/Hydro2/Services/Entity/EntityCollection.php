@@ -38,6 +38,14 @@ class EntityCollection implements Countable
     }
 
     /**
+     * @return T[]
+     */
+    public function ReadEntire(?Query $query = null): array
+    {
+        return $this->_repository->Read($query);
+    }
+
+    /**
      * @param T $entity
      */
     public function Update(object &$entity): bool
