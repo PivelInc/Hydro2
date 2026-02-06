@@ -160,6 +160,9 @@ class EntityDefinition implements Iterator, Countable
                     if ($pFkAttribute->OtherEntityClass !== null) {
                         $fkClass = $pFkAttribute->OtherEntityClass;
                     }
+                    
+                    $fkOnUpdate = $pFkAttribute->OnUpdate;
+                    $fkOnDelete = $pFkAttribute->OnDelete;
 
                     if ($pFkAttribute->OtherEntityFieldName !== null) {
                         $fkPkField = (new EntityDefinition($fkClass))->GetFieldByFieldName($pFkAttribute->OtherEntityFieldName);

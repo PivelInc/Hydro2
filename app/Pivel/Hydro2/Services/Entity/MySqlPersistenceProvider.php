@@ -375,7 +375,7 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
     // Helpers
     private static function getColumnSQL(EntityFieldDefinition $field) : string {
         // column_name [def] [PRIMARY KEY|FOREIGN KEY]
-        $s = $field->FieldName . ' '. self::GetSQLType($field) . ($field->AutoIncrement?' AUTO_INCREMENT':'');
+        $s = '`' . $field->FieldName . '` '. self::GetSQLType($field) . ($field->AutoIncrement?' AUTO_INCREMENT':'');
         return $s;
     }
 
