@@ -17,6 +17,12 @@ interface IEntityRepository
     public function __construct(IEntityService $entityService, IEntityPersistenceProvider $provider, ILoggerService $logger, string $entityClass);
 
     /**
+     * Creates the collection/table for this entity if it does not already exist.
+     * @return bool Whether the creation was successful
+     */
+    public function CreateCollection() : bool;
+
+    /**
      * @param ?Query $query If not provided, will return all entities
      * @return TEntity[]
      */

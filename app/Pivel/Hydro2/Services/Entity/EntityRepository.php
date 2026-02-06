@@ -42,19 +42,50 @@ class EntityRepository implements IEntityRepository
         $this->definition = new EntityDefinition($entityClass);
     }
 
+    public function CreateCollection() : bool
+    {
+        $this->_logger->Info('Pivel/Hydro2', "Creating definition '{$this->definition->GetName()}'...");
+        // if the collection already exists, don't try to create it again.
+        if ($this->_provider->CollectionExists($this->definition)) {
+            $this->_logger->Warn('Pivel/Hydro2', "Definition '{$this->definition->GetName()}' already exists.");
+            return true;
+        }
+        
+        // need to check if this collection depends on other collections, and if they don't exist, create those first.
+        // i.e. Session depends on User, and User also depends on UserRole
+        foreach ($this->definition as $field) {
+            if (!$field->IsForeignKey) {
+                continue;
+            }
+
+            $this->_logger->Info('Pivel/Hydro2', "Definition '{$this->definition->GetName()}' depends on foreign collection '{$field->ForeignKeyCollectionName}'. Trying to create it...");
+            $r = $this->_entityService->GetRepository($field->ForeignKeyClassName);
+            if (!$r->CreateCollection()) {
+                $this->_logger->Error('Pivel/Hydro2', "Failed to create definition '{$this->definition->GetName()}' since foreign collection '{$field->ForeignKeyCollectionName}' does not exist and we failed to create it.");
+                return false;
+            }
+        }
+
+        $created = $this->_provider->CreateCollectionIfNotExists($this->definition);
+        if (!$created) {
+            $this->_logger->Error('Pivel/Hydro2', "Failed to create definition '{$this->definition->GetName()}'.");
+            return 0;
+        }
+
+        $this->_logger->Info('Pivel/Hydro2', "Successfully created '{$this->definition->GetName()}'.");
+        return $created;
+    }
+
     public function Read(?Query $query = null) : array
     {
         try {
             $results = $this->_provider->Select($this->definition, $query);
         } catch (TableNotFoundException) {
             $this->_logger->Warn('Pivel/Hydro2', "Definition '{$this->definition->GetName()}' not found.");
-            $this->_logger->Info('Pivel/Hydro2', "Creating definition '{$this->definition->GetName()}'...");
-            $created = $this->_provider->CreateCollectionIfNotExists($this->definition);
+            $created = $this->CreateCollection();
             if (!$created) {
-                $this->_logger->Error('Pivel/Hydro2', "Failed to create definition '{$this->definition->GetName()}'.");
                 return [];
             }
-            $this->_logger->Info('Pivel/Hydro2', "Successfully created '{$this->definition->GetName()}'.");
             $results = $this->_provider->Select($this->definition, $query);
         }
 
@@ -98,13 +129,10 @@ class EntityRepository implements IEntityRepository
             $results = $this->_provider->Select($this->definition, $query);
         } catch (TableNotFoundException) {
             $this->_logger->Warn('Pivel/Hydro2', "Definition '{$this->definition->GetName()}' not found.");
-            $this->_logger->Info('Pivel/Hydro2', "Creating definition '{$this->definition->GetName()}'...");
-            $created = $this->_provider->CreateCollectionIfNotExists($this->definition);
+            $created = $this->CreateCollection();
             if (!$created) {
-                $this->_logger->Error('Pivel/Hydro2', "Failed to create definition '{$this->definition->GetName()}'.");
                 return false;
             }
-            $this->_logger->Info('Pivel/Hydro2', "Successfully created '{$this->definition->GetName()}'.");
             $results = $this->_provider->Select($this->definition, $query);
         }
 
@@ -123,13 +151,10 @@ class EntityRepository implements IEntityRepository
             $result = $this->_provider->Count($this->definition, $query);
         } catch (TableNotFoundException) {
             $this->_logger->Warn('Pivel/Hydro2', "definition '{$this->definition->GetName()}' not found.");
-            $this->_logger->Info('Pivel/Hydro2', "Creating definition '{$this->definition->GetName()}'...");
-            $created = $this->_provider->CreateCollectionIfNotExists($this->definition);
+            $created = $this->CreateCollection();
             if (!$created) {
-                $this->_logger->Error('Pivel/Hydro2', "Failed to create definition '{$this->definition->GetName()}'.");
                 return 0;
             }
-            $this->_logger->Info('Pivel/Hydro2', "Successfully created '{$this->definition->GetName()}'.");
             $result = $this->_provider->Count($this->definition, $query);
         }
 
@@ -163,13 +188,10 @@ class EntityRepository implements IEntityRepository
             $this->_logger->Info('Pivel/Hydro2', "Successfully inserted in '{$this->definition->GetName()}' with primary key {$pk}");
         } catch (TableNotFoundException) {
             $this->_logger->Warn('Pivel/Hydro2', "definition '{$this->definition->GetName()}' not found.");
-            $this->_logger->Info('Pivel/Hydro2', "Creating definition '{$this->definition->GetName()}'...");
-            $created = $this->_provider->CreateCollectionIfNotExists($this->definition);
+            $created = $this->CreateCollection();
             if (!$created) {
-                $this->_logger->Error('Pivel/Hydro2', "Failed to create definition '{$this->definition->GetName()}'.");
                 return false;
             }
-            $this->_logger->Info('Pivel/Hydro2', "Successfully created '{$this->definition->GetName()}'.");
             $pk = $this->_provider->Insert($this->definition, $values);
         }
 
@@ -209,13 +231,11 @@ class EntityRepository implements IEntityRepository
             $this->_logger->Info('Pivel/Hydro2', "Successfully inserted or updated record in '{$this->definition->GetName()}' with primary key {$pk}");
         } catch (TableNotFoundException) {
             $this->_logger->Warn('Pivel/Hydro2', "definition '{$this->definition->GetName()}' not found.");
-            $this->_logger->Info('Pivel/Hydro2', "Creating definition '{$this->definition->GetName()}'...");
-            $created = $this->_provider->CreateCollectionIfNotExists($this->definition);
+            
+            $created = $this->CreateCollection();
             if (!$created) {
-                $this->_logger->Error('Pivel/Hydro2', "Failed to create definition '{$this->definition->GetName()}'.");
                 return false;
             }
-            $this->_logger->Info('Pivel/Hydro2', "Successfully created '{$this->definition->GetName()}'.");
             $pk = $this->_provider->InsertOrUpdate($this->definition, $values);
         }
 
@@ -247,13 +267,10 @@ class EntityRepository implements IEntityRepository
             $affectedRows = $this->_provider->Delete($this->definition, (new Query())->Equal($pkField->FieldName, $this->GetEntityPrimaryKey($entity)));
         } catch (TableNotFoundException) {
             $this->_logger->Warn('Pivel/Hydro2', "definition '{$this->definition->GetName()}' not found.");
-            $this->_logger->Info('Pivel/Hydro2', "Creating definition '{$this->definition->GetName()}'...");
-            $created = $this->_provider->CreateCollectionIfNotExists($this->definition);
+            $created = $this->CreateCollection();
             if (!$created) {
-                $this->_logger->Error('Pivel/Hydro2', "Failed to create definition '{$this->definition->GetName()}'.");
                 return 0;
             }
-            $this->_logger->Info('Pivel/Hydro2', "Successfully created '{$this->definition->GetName()}'.");
             $affectedRows = $this->_provider->Delete($this->definition, (new Query())->Equal($pkField->FieldName, $this->GetEntityPrimaryKey($entity)));
         }
 
