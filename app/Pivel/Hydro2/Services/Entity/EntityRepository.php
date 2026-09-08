@@ -196,7 +196,9 @@ class EntityRepository implements IEntityRepository
         }
 
         if ($pk !== null) {
-            $this->SetEntityPrimaryKey($entity, $pk);
+            if (is_a($pk, $this->definition->GetPrimaryKeyField()->PropertyType) || (is_int($pk) && $this->definition->GetPrimaryKeyField()->PropertyType == "int")) {
+                $this->SetEntityPrimaryKey($entity, $pk);
+            }
             $this->SetEntityCollections($entity);
         }
 
@@ -240,7 +242,9 @@ class EntityRepository implements IEntityRepository
         }
 
         if ($pk !== null) {
-            $this->SetEntityPrimaryKey($entity, $pk);
+            if (is_a($pk, $this->definition->GetPrimaryKeyField()->PropertyType)) {
+                $this->SetEntityPrimaryKey($entity, $pk);
+            }
             $this->SetEntityCollections($entity);
         }
 
@@ -289,11 +293,14 @@ class EntityRepository implements IEntityRepository
         // if this entity's definition says that it is extendable:
         if ($this->definition->IsExtendable() && $entity === null) {
             // check discriminator
+            //echo "Discriminator: " . ($values["discriminator"] ?? "null") . "\n";
             $d = class_exists($values["discriminator"]) ? $values["discriminator"] : $this->entityClass;
+            //echo "Discriminator class: {$d}\n";
             // if discriminator is this entity, continue loading it
             if ($d !== $this->entityClass) {
                 // else, load that entity and return it. If it doesn't exist, keep loading this entity instead.
                 $r = $this->_entityService->GetRepository($d);
+                //echo "Loading entity of type {$d} with primary key {$this->definition->GetPrimaryKeyField()->FieldName} = {$values[$this->definition->GetPrimaryKeyField()->FieldName]}\n";
                 $e = $r->ReadById($values[$this->definition->GetPrimaryKeyField()->FieldName]);
                 if ($e !== null) {
                     return $e;

@@ -98,7 +98,7 @@ class SqlitePersistenceProvider implements IEntityPersistenceProvider
             return false;
         }
 
-        $stmt = $this->pdo->prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=':tblname'");
+        $stmt = $this->pdo->prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=:tblname");
         $stmt->execute(['tblname'=>$collection->GetName()]);
         $res = $stmt->fetchAll();
         return count($res) == 1;
