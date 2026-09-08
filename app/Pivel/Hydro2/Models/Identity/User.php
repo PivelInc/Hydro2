@@ -170,7 +170,7 @@ class User implements JsonSerializable
         // TODO add enforcement for minimum length, complexity, not matching previous x passwords.
         $now = new DateTime(timezone: new DateTimeZone('UTC'));
         $expiry = null;
-        if ($this->role->MaxPasswordAgeDays !== null) {
+        if ($this->role?->MaxPasswordAgeDays !== null) {
             $expiry = clone $now;
             $expiry->modify("+{$this->role->MaxPasswordAgeDays} days");
         }

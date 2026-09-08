@@ -93,6 +93,13 @@ class UserController extends BaseController
         $email = $this->request->Args['email'];
         $password = $this->request->Args['password'];
 
+        // 2.a. check if user with this email already exists. If so, return error.
+        if ($this->_identityService->IsEmailInUseByUser($email)) {
+            $this->_logger->Error("Pivel/Hydro2", "Error creating user. A user with this email already exists. Exiting.");
+            echo("Error creating user. A user with this email already exists. Exiting.\n");
+            return;
+        }
+
         // 1. create a user role with ViewUsers, CreateUsers, ManageUsers, CreateUserRoles, ManageUserRoles, ManageOutboundEmailProfiles
         //     creating a new user role each time is OK, since it should either be the first/Admin role anyways or the user can delete it later.
         $this->_logger->Warn("Pivel/Hydro2", "CreateAdminUser command was run. If this was not intentional, please check your server logs and consider changing your database credentials.");
@@ -122,7 +129,7 @@ class UserController extends BaseController
         }
 
         $this->_logger->Info("Pivel/Hydro2", "Successfully created role \"CLI Admin\".");
-        echo("Successfully created role \"CLI Admin\".\n");
+        echo("Successfully created role \"CLI Admin\" with Id {$role->Id}.\n");
 
         // 2. create a user with the user role, with verification manually passed.
         $this->_logger->Info("Pivel/Hydro2", "Creating user \"CLI Admin\" with email \"{$email}\"...");

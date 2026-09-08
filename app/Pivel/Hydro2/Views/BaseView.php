@@ -292,7 +292,7 @@ class BaseView
                     $viewArgsString = $viewParts[1] ?? '';
                     if ($debug) {echo "view args string: {$viewArgsString}<br />\n";}
                     // split by ',' that are not inside a pair of "" ==> args[]
-                    $viewArgs = empty($viewArgsString) ? [] : str_getcsv($viewArgsString);
+                    $viewArgs = empty($viewArgsString) ? [] : str_getcsv($viewArgsString, escape: '\\');
                     // for each oldKey
                     $named = false;
                     foreach (array_keys($viewArgs) as $oldKey) {
