@@ -25,8 +25,13 @@ class Response
         return new static('', false, StatusCode::OK, []);
     }
     
-    public function send(bool $buffer=true)
+    public function send(bool $buffer=true, bool $is_cli=false)
     {
+        if ($is_cli) {
+            echo $this->content;
+            return;
+        }
+        
         if (!$buffer) {
             http_response_code($this->status->value);
             foreach ($this->headers as $headerName => $headerContent) {

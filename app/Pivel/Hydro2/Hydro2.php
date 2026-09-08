@@ -9,6 +9,7 @@ use PHPUnit\Util\Json;
 use Pivel\Hydro2\Models\EntityPersistenceProfile;
 use Pivel\Hydro2\Models\ErrorMessage;
 use Pivel\Hydro2\Models\HTTP\JsonResponse;
+use Pivel\Hydro2\Models\HTTP\Method;
 use Pivel\Hydro2\Models\HTTP\Request;
 use Pivel\Hydro2\Models\HTTP\Response;
 use Pivel\Hydro2\Models\HTTP\StatusCode;
@@ -113,7 +114,7 @@ class Hydro2
     }
 
     /**
-     * @param T $classOrInterface The name of the class or interface to resolve. Returns null if not registered.
+     * @param class-string $classOrInterface The name of the class or interface to resolve. Returns null if not registered.
      * @param mixed[] $args Array of args to pass (unpacked) to class' constructor after other dependencies are passed.
      */
     public function ResolveDependency(string $classOrInterface, array $args = []) : ?object
@@ -273,7 +274,7 @@ class Hydro2
         $this->_loggerService->Info('Pivel/Hydro2', "{$request->method->value} {$request->getClientAddress()} {$request->endpoint}");
 
         $response = $this->processRequest($request);
-        $response->send(false);
+        $response->send(false, $request->method == Method::CLI);
 
         $run_end = microtime(true);
         $elapsed_time = number_format(($run_end - $run_start) * 1000, 3);
