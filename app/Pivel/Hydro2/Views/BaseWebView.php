@@ -7,8 +7,8 @@ use Pivel\Hydro2\Extensions\RequireStyle;
 use Pivel\Hydro2\Hydro2;
 use ReflectionClass;
 
-#[RequireScript('/assets/Pivel/Hydro2/hydro2-2.3.0.1.js', Inline: false)]
-#[RequireStyle('/assets/Pivel/Hydro2/hydro2-2.3.0.1.css', Inline: false)]
+#[RequireScript('/assets/Pivel/Hydro2/hydro2-2.3.1.0.js', Inline: false)]
+#[RequireStyle('/assets/Pivel/Hydro2/hydro2-2.3.1.0.css', Inline: false)]
 class BaseWebView extends BaseView
 {
     protected $Scripts = '';
