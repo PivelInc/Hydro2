@@ -11,7 +11,7 @@
         displayDetailsOnTestsThatTriggerWarnings="true"
 >
     <testsuites>
-        <testsuite name="Hydro2 Test Suite">
+        <testsuite name="Hydro2TestSuite">
             <directory>tests</directory>
         </testsuite>
     </testsuites>

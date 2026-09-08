@@ -11,14 +11,17 @@ use ReflectionClass;
 
 class RouterService
 {
+    private Hydro2 $_app;
     private array $routes;
     private ILoggerService $_loggerService;
     private PackageManifestService $_manifestService;
 
     public function __construct(
+        Hydro2 $app,
         ILoggerService $loggerService,
         PackageManifestService $packageManifestService,
     ) {
+        $this->_app = $app;
         $this->_loggerService = $loggerService;
         $this->_manifestService = $packageManifestService;
     }
@@ -47,13 +50,17 @@ class RouterService
 
             $class = new ReflectionClass($c);
 
-            $route_prefix_segments = [];
+            $route_prefixes_segments = [];
             $class_attributes = $class->getAttributes(RoutePrefix::class);
             foreach ($class_attributes as $class_attribute) {
                 $route_prefix = $class_attribute->newInstance();
                 $prefix = $route_prefix->pathPrefix;
                 $prefix = trim($prefix, "/");
-                $route_prefix_segments = explode("/", $prefix);
+                $route_prefixes_segments[] = explode("/", $prefix);
+            }
+
+            if (count($route_prefixes_segments) == 0) {
+                $route_prefixes_segments = [[]];
             }
 
             foreach ($class->getMethods() as $method) {
@@ -66,17 +73,16 @@ class RouterService
                         $route->path = substr($route->path, 1);
                     }
                     $path = trim($route->path, '/');
-                    $route_segments = [];
-                    if ($path != '' || !$use_prefix || count($route_prefix_segments) == 0) {
-                        $route_segments = explode('/', $path);
+                    $route_segments = $path==''?[]:explode('/', $path);
+                    foreach ($route_prefixes_segments as $route_prefix_segments) {
+                        $this->routes[] = [
+                            'method' => $route->method,
+                            'path' => ($use_prefix ? array_merge($route_prefix_segments, $route_segments) : $route_segments),
+                            'controller_class' => $c,
+                            'controller_method' => $method->getName(),
+                            'order' => $route->order,
+                        ];
                     }
-                    $this->routes[] = [
-                        'method' => $route->method,
-                        'path' => ($use_prefix ? array_merge($route_prefix_segments, $route_segments) : $route_segments),
-                        'controller_class' => $c,
-                        'controller_method' => $method->getName(),
-                        'order' => $route->order,
-                    ];
                 }
             }
         }
@@ -89,12 +95,12 @@ class RouterService
     }
 
     public function LoadRoutes() : bool {
-        if (!file_exists(Hydro2::$Current->MainAppDir . '/routes.json')) {
+        if (!file_exists($this->_app->MainAppDir . '/routes.json')) {
             return false;
         }
 
         //$loading_start = microtime(true);
-        $raw_routes = file_get_contents(Hydro2::$Current->MainAppDir . '/routes.json');
+        $raw_routes = file_get_contents($this->_app->MainAppDir . '/routes.json');
         //$loading_end = microtime(true);
         //echo "Took " . ($loading_end - $loading_start) * 1000 . 'ms to load file contents.';
         $this->routes = json_decode($raw_routes, true);
@@ -107,11 +113,11 @@ class RouterService
     }
 
     public function SaveRoutes() : void {
-        file_put_contents(Hydro2::$Current->MainAppDir . '/routes.json', json_encode($this->routes));
+        file_put_contents($this->_app->MainAppDir . '/routes.json', json_encode($this->routes));
     }
 
     public function GetMatchingRoutes(Method $method, string $path) : array {
-        $path_segments = explode('/', trim($path, '/'));
+        $path_segments = $path==''?[]:explode('/', trim($path, '/'));
         $matching_routes = array_values(array_filter($this->routes, function($route) use ($method, $path_segments) {
             //echo "Comparing " . join('/', $path_segments) . ' to template ' . join('/', $route['path']) . ':';
             $route_method = $route['method'];
@@ -120,6 +126,7 @@ class RouterService
             }
             if ($method != $route_method) {
                 //echo "Method " . $method->value . " didn't match " . $route['method'] . "<br />";
+                //$this->_loggerService->Debug('Pivel/Hydro2', 'Rejected ' . ($route_method->value).' '.implode('/', $route['path']).' (method mismatch)');
                 return false;
             }
 
@@ -128,6 +135,7 @@ class RouterService
             for ($i = 0; $i < count($path_segments); $i++) {
                 if (!isset($route['path'][$template_segment_idx])) {
                     //echo 'Not enough template segments<br />';
+                    //$this->_loggerService->Debug('Pivel/Hydro2', 'Rejected ' . ($route_method->value).' '.implode('/', $route['path']).' (length mismatch)');
                     return false;
                 }
 
@@ -213,9 +221,11 @@ class RouterService
             }
 
             // Otherwise,
-            //echo 'Matched!<br />';
+            //$this->_loggerService->Debug('Pivel/Hydro2', ($route_method->value).' '.implode('/', $route['path']));
             return true;
         }));
+
+        $this->_loggerService->Debug('Pivel/Hydro2', "Found ".count($matching_routes)." matching routes.");
 
         return $matching_routes;
     }
@@ -279,7 +289,7 @@ class RouterService
     public static function ParsePathParameters(array $template, string $path) : array {
         $parameters = [];
 
-        $path_segments = explode('/', $path);
+        $path_segments = $path==''?[]:explode('/', trim($path, '/'));
 
         $template_segment_idx = 0;
         $wildcard_matched = false;
@@ -330,12 +340,12 @@ class RouterService
                     continue;
                 }
 
-                if (!isset($route['path'][$template_segment_idx+1])) {
+                if (!isset($template['path'][$template_segment_idx+1])) {
                     $parameters[$parameter_name] .= '/' . $path_segments[$i];
                     continue;
                 }
 
-                $next_template_segment = $route['path'][$template_segment_idx+1];
+                $next_template_segment = $template['path'][$template_segment_idx+1];
                 $next_template_segment_type = self::GetPathSegmentType($next_template_segment);
                 if ($next_template_segment_type == self::SEG_LITERAL && $next_template_segment == $path_segments[$i]) {
                     $template_segment_idx += 2;

@@ -17,6 +17,12 @@ interface IEntityRepository
     public function __construct(IEntityService $entityService, IEntityPersistenceProvider $provider, ILoggerService $logger, string $entityClass);
 
     /**
+     * Creates the collection/table for this entity if it does not already exist.
+     * @return bool Whether the creation was successful
+     */
+    public function CreateCollection() : bool;
+
+    /**
      * @param ?Query $query If not provided, will return all entities
      * @return TEntity[]
      */
@@ -27,6 +33,12 @@ interface IEntityRepository
      * @return ?TEntity
      */
     public function ReadById(mixed $id) : ?object;
+
+    /**
+     * @param object &$entity The entity to apply field values to
+     * @return bool Whether reading and applying values was successful
+     */
+    public function ReadByIdIntoSubEntity(object &$entity, $id) : bool;
 
     /**
      * @param ?Query $query If not provided, will count the total number of entities

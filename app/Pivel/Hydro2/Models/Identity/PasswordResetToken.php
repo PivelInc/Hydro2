@@ -16,7 +16,7 @@ class PasswordResetToken
     #[EntityField(FieldName: 'id', AutoIncrement: true)]
     #[EntityPrimaryKey]
     public ?int $Id = null;
-    #[EntityField(FieldName: 'user_id')]
+    #[EntityField(FieldName: 'user_uuid')]
     #[ForeignEntityManyToOne(OnDelete: ReferenceBehaviour::CASCADE)]
     private ?User $user;
     #[EntityField(FieldName: 'reset_token')]
@@ -36,7 +36,7 @@ class PasswordResetToken
         $this->user = $user;
         $this->GenerateToken();
         $this->StartTime = $startTime??new DateTime(timezone:new DateTimeZone('UTC'));
-        $this->ExpireTime = (clone $this->StartTime)->modify("+{$expireAfterMinutes} minutes");
+        $this->ExpireTime = (clone $this->StartTime)->modify(($expireAfterMinutes>=0?"+":"")."{$expireAfterMinutes} minutes");
         $this->Used = false;
     }
 

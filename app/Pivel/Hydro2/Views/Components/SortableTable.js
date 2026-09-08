@@ -2,7 +2,6 @@ class SortableTable {
     _e;
     _table;
     _apiEndpoint;
-    _apiResponseKey;
     _loader;
     _headers;
     _columns = [];
@@ -10,11 +9,10 @@ class SortableTable {
     _sortDir = 0; // 0=asc,1=desc
     _data = [];
     _customRenderer = null;
-    constructor(selector, apiEndpoint, apiResponseKey, renderer=null) {
+    constructor(selector, apiEndpoint, renderer=null) {
         this._e = H.Nodes(selector+".sortable-table");
         this._table = this._e.Nodes("table");
         this._apiEndpoint = apiEndpoint;
-        this._apiResponseKey = apiResponseKey;
         this._customRenderer = renderer;
 
         // find columns
@@ -71,8 +69,7 @@ class SortableTable {
 
     _dataLoadedCallback(response) {
         if (response.Status == H.StatusCode.OK) {
-            this._data = response.Data[this._apiResponseKey];
-            console.log(response);
+            this._data = response.ResponseObject;
             this._hideSpinner();
             if (this._customRenderer !== null) {
                 this._customRenderer(this);

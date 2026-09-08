@@ -2,6 +2,7 @@
 
 namespace Pivel\Hydro2\Models\Identity;
 
+use JsonSerializable;
 use Pivel\Hydro2\Attributes\Entity\Entity;
 use Pivel\Hydro2\Attributes\Entity\EntityField;
 use Pivel\Hydro2\Attributes\Entity\EntityPrimaryKey;
@@ -10,7 +11,7 @@ use Pivel\Hydro2\Extensions\Query;
 use Pivel\Hydro2\Services\Entity\EntityCollection;
 
 #[Entity(CollectionName: 'hydro2_user_roles')]
-class UserRole
+class UserRole implements JsonSerializable
 {
     #[EntityField(FieldName: 'id', AutoIncrement: true)]
     #[EntityPrimaryKey]
@@ -62,6 +63,22 @@ class UserRole
         $this->DaysUntil2FASetupRequired = $daysUntil2FASetupRequired;
         $this->ChallengeIntervalMinutes = $challengeIntervalMinutes;
         $this->Max2FAAttempts = $max2FAAttempts;
+    }
+
+    public function jsonSerialize(): mixed
+    {
+        return [
+            'id' => $this->Id,
+            'name' => $this->Name,
+            'description' => $this->Description,
+            'max_login_attempts' => $this->MaxLoginAttempts,
+            'max_session_length' => $this->MaxSessionLengthMinutes,
+            'max_password_age' => $this->MaxPasswordAgeDays,
+            'days_until_2fa_setup_required' => $this->DaysUntil2FASetupRequired,
+            'challenge_interval' => $this->ChallengeIntervalMinutes,
+            'max_2fa_attempts' => $this->Max2FAAttempts,
+            'permissions' => $this->GetPermissions(),
+        ];
     }
 
     public function GetUserCount(): int

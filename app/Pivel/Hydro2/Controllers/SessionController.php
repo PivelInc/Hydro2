@@ -6,6 +6,8 @@ use DateTime;
 use DateTimeZone;
 use Pivel\Hydro2\Extensions\Route;
 use Pivel\Hydro2\Extensions\RoutePrefix;
+use Pivel\Hydro2\Hydro2;
+use Pivel\Hydro2\Models\ErrorMessage;
 use Pivel\Hydro2\Models\HTTP\JsonResponse;
 use Pivel\Hydro2\Models\HTTP\Method;
 use Pivel\Hydro2\Models\HTTP\Request;
@@ -25,105 +27,70 @@ use Pivel\Hydro2\Views\Identity\LoginView;
 #[RoutePrefix('api/hydro2/identity')]
 class SessionController extends BaseController
 {
+    private Hydro2 $_app;
     private ILoggerService $_logger;
     private IdentityService $_identityService;
     private UserNotificationService $_userNotificationService;
 
     public function __construct(
+        Hydro2 $app,
         ILoggerService $logger,
         IdentityService $identityService,
         UserNotificationService $userNotificationService,
         Request $request,
     )
     {
+        $this->_app = $app;
         $this->_logger = $logger;
         $this->_identityService = $identityService;
         parent::__construct($request);
     }
 
+    #[Route(Method::POST, 'sessions')]
     #[Route(Method::POST, 'login')]
     #[Route(Method::POST, '~login')]
     #[Route(Method::POST, '~api/login')]
     public function Login(): Response
     {
         if ($this->_identityService->GetSessionFromRequest($this->request) !== null) {
+            $session = $this->_identityService->GetSessionFromRequest($this->request);
+            $user = $session->GetUser();
             return new JsonResponse(
-                data: [
-                    'validation_errors' => [
-                        [
-                            'name' => 'email',
-                            'description' => "User's email address",
-                            'message' => 'Already logged in.',
-                        ],
-                    ],
+                [
+                    'authenticated' => true,
+                    'challenge_required' => ($user->GetUserRole()->ChallengeIntervalMinutes>0),
+                    'password_change_required' => $user->IsPasswordChangeRequired(),
                 ],
-                status: StatusCode::BadRequest,
-                error_message: 'One or more arguments are invalid.'
+                status: StatusCode::OK,
             );
         }
 
         if (!isset($this->request->Args['email'])) {
             return new JsonResponse(
-                data: [
-                    'validation_errors' => [
-                        [
-                            'name' => 'email',
-                            'description' => "User's email address",
-                            'message' => "The user's email address is required.",
-                        ],
-                    ],
-                ],
+                new ErrorMessage('session-0001', "Missing parameter \"email\"", "The user's email address is required."),
                 status: StatusCode::BadRequest,
-                error_message: 'One or more arguments are missing.'
             );
         }
 
         if (!isset($this->request->Args['password'])) {
             return new JsonResponse(
-                data: [
-                    'validation_errors' => [
-                        [
-                            'name' => 'password',
-                            'description' => "User's current password",
-                            'message' => "The user's current password is required.",
-                        ],
-                    ],
-                ],
+                new ErrorMessage('session-0002', "Missing parameter \"password\"", "The user's current password is required."),
                 status: StatusCode::BadRequest,
-                error_message: 'One or more arguments are missing.'
             );
         }
 
         $user = $this->_identityService->GetUserFromEmail($this->request->Args['email']);
         if ($user == null) {
             return new JsonResponse(
-                data: [
-                    'validation_errors' => [
-                        [
-                            'name' => 'email',
-                            'description' => "User's email address",
-                            'message' => 'The provided email address does not match an account.',
-                        ],
-                    ],
-                ],
+                new ErrorMessage('session-0003', "Invalid parameter \"email\"", "The provided email address does not match an account."),
                 status: StatusCode::BadRequest,
-                error_message: 'One or more arguments are invalid.'
             );
         }
 
         if ($user->GetUserRole() === null) {
             return new JsonResponse(
-                data: [
-                    'validation_errors' => [
-                        [
-                            'name' => 'email',
-                            'description' => "User's email address",
-                            'message' => 'Unable to log in. Please contact the administrator.',
-                        ],
-                    ],
-                ],
+                new ErrorMessage('session-0004', "Invalid parameter \"email\"", "Unable to log in. Please contact the administrator."),
                 status: StatusCode::BadRequest,
-                error_message: 'One or more arguments are invalid.'
             );
         }
 
@@ -132,17 +99,8 @@ class SessionController extends BaseController
             ($user->GetUserRole()->Max2FAAttempts > 0 && $user->Failed2FAAttempts >= $user->GetUserRole()->Max2FAAttempts)
         ) {
             return new JsonResponse(
-                data: [
-                    'validation_errors' => [
-                        [
-                            'name' => 'email',
-                            'description' => "User's email address",
-                            'message' => 'This account is locked due to too many failed login attempts.',
-                        ],
-                    ],
-                ],
+                new ErrorMessage('session-0005', "Invalid parameter \"email\"", 'This account is locked due to too many failed login attempts.'),
                 status: StatusCode::BadRequest,
-                error_message: 'One or more arguments are invalid.'
             );
         }
 
@@ -152,17 +110,8 @@ class SessionController extends BaseController
             $view = new NewUserVerificationEmailView($this->_identityService->GetEmailVerificationUrl($this->request, $user, true), $user->Name);
             $this->_userNotificationService->SendEmailToUser($user, $view);
             return new JsonResponse(
-                data: [
-                    'validation_errors' => [
-                        [
-                            'name' => 'password',
-                            'description' => "User's current password",
-                            'message' => 'Account creation is incomplete. A validation email has been re-sent to your email address.',
-                        ],
-                    ],
-                ],
+                new ErrorMessage('session-0006', "Invalid parameter \"password\"", 'Account creation is incomplete. A validation email has been re-sent to your email address.'),
                 status: StatusCode::BadRequest,
-                error_message: 'One or more arguments are invalid.'
             );
         }
         
@@ -170,33 +119,15 @@ class SessionController extends BaseController
             $user->FailedLoginAttempts++;
             $this->_identityService->UpdateUser($user);
             return new JsonResponse(
-                data: [
-                    'validation_errors' => [
-                        [
-                            'name' => 'password',
-                            'description' => "User's current password",
-                            'message' => 'The provided password is incorrect.',
-                        ],
-                    ],
-                ],
+                new ErrorMessage('session-0007', "Invalid parameter \"password\"", 'The provided password is incorrect.'),
                 status: StatusCode::BadRequest,
-                error_message: 'One or more arguments are invalid.'
             );
         }
 
         if (!$user->Enabled || $user->NeedsReview) {
             return new JsonResponse(
-                data: [
-                    'validation_errors' => [
-                        [
-                            'name' => 'email',
-                            'description' => "User's email address",
-                            'message' => 'This account is locked.',
-                        ],
-                    ],
-                ],
+                new ErrorMessage('session-0008', "Invalid parameter \"email\"", 'Unable to log in. Please contact the administrator.'),
                 status: StatusCode::BadRequest,
-                error_message: 'One or more arguments are invalid.'
             );
         }
 
@@ -208,82 +139,45 @@ class SessionController extends BaseController
 
         if ($session === null) {
             return new JsonResponse(
+                new ErrorMessage('session-0009', "Failed to login", 'Unable to log in. Please contact the administrator.'),
                 status: StatusCode::InternalServerError,
-                error_message: "There was a problem with the database."
             );
         }
 
         setcookie('sridkey', $session->RandomId . ';' . $session->Key, $session->ExpireTime->getTimestamp(), '/', httponly: true);
 
         return new JsonResponse(
-            data: [
-                'login_result' => [
-                    'authenticated' => true,
-                    'challenge_required' => ($user->GetUserRole()->ChallengeIntervalMinutes>0),
-                    'password_change_required' => $user->IsPasswordChangeRequired(),
-                ],
+            [
+                'authenticated' => true,
+                'challenge_required' => ($user->GetUserRole()->ChallengeIntervalMinutes>0),
+                'password_change_required' => $user->IsPasswordChangeRequired(),
             ],
             status: StatusCode::OK,
         );
     }
 
-    #[Route(Method::GET, 'users/{id}/sessions')]
+    #[Route(Method::GET, 'users/{uuid}/sessions')]
     public function UserGetSessions(): Response
     {
         // need to have either viewusersessions permission or be requestion own user's sessions
         $requestUser = $this->_identityService->GetUserFromRequestOrVisitor($this->request);
         if (!(
             $requestUser->GetUserRole()->HasPermission(Permissions::ViewUserSessions->value) ||
-            $requestUser->RandomId == $this->request->Args['id']
+            $requestUser->Id == $this->request->Args['id']
         )) {
             return new Response(status: StatusCode::NotFound);
         }
 
-        $user = $this->_identityService->GetUserFromRandomId($this->request->Args['id']);
+        $user = $this->_identityService->GetUserFromId($this->request->Args['uuid']);
         if ($user === null) {
-            return new JsonResponse(
-                data: [
-                    'validation_errors' => [
-                        [
-                            'name' => 'id',
-                            'description' => "User's random ID",
-                            'message' => "The user doesn't exist.",
-                        ],
-                    ],
-                ],
-                status: StatusCode::BadRequest,
-                error_message: 'One or more arguments are invalid.'
-            );
+            return new Response(status: StatusCode::NotFound);
         }
 
-        $currentSessionId = $this->_identityService->GetSessionFromRequest($this->request)->RandomId;
-        $sessionsResults = [];
         $sessions = $user->GetSessions();
-        foreach ($sessions as $s) {
-            $sessionsResults[] = [
-                'random_id' => $s->RandomId,
-                'browser' => $s->Browser,
-                'start' => $s->StartTime,
-                'expire' => $s->ExpireTime,
-                'last_access' => $s->LastAccessTime,
-                'start_ip' => $s->StartIP,
-                'last_ip' => $s->LastIP,
-                'is_this_session' => $s->RandomId === $currentSessionId,
-            ];
-        }
 
-        return new JsonResponse(
-            data: [
-                'sessions' => $sessionsResults,
-            ],
-        );
+        return new JsonResponse($sessions);
     }
-
-    #[Route(Method::GET, 'users/{userid}/sessions/{sessionid}/expire')]
-    #[Route(Method::POST, 'users/{userid}/sessions/{sessionid}/expire')]
-    #[Route(Method::DELETE, 'users/{userid}/sessions/{sessionid}')]
-    #[Route(Method::GET, 'sessions/{sessionid}/expire')]
-    #[Route(Method::POST, 'sessions/{sessionid}/expire')]
+    
     #[Route(Method::DELETE, 'sessions/{sessionid}')]
     public function UserExpireSession(): Response
     {
@@ -299,32 +193,19 @@ class SessionController extends BaseController
 
         if ($session === null) {
             return new JsonResponse(
-                data: [
-                    'validation_errors' => [
-                        [
-                            'name' => 'sessionid',
-                            'description' => "Session's random ID",
-                            'message' => "The session doesn't exist.",
-                        ],
-                    ],
-                ],
-                status: StatusCode::BadRequest,
-                error_message: 'One or more arguments are invalid.'
+                new ErrorMessage('session-0010', "Invalid parameter \"sessionid\"", 'Session not found or already deleted.'),
+                status: StatusCode::NotFound,
             );
         }
 
         if (!$this->_identityService->ExpireSession($session)) {
             return new JsonResponse(
+                new ErrorMessage('session-0011', "Failed to terminate session", 'An internal error prevented termination of the session.'),
                 status: StatusCode::InternalServerError,
-                error_message: "There was a problem with the database."
             );
         }
 
-        return new JsonResponse(
-            data: [
-                'expire_session_result' => true,
-            ]
-        );
+        return new Response(status: StatusCode::NoContent);
     }
 
     #[Route(Method::GET, '~login')]
@@ -350,7 +231,7 @@ class SessionController extends BaseController
         }
 
         return new Response(
-            content: $view->Render()
+            content: $view->Render($this->_app)
         );
     }
 

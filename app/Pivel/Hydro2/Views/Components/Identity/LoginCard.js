@@ -81,6 +81,7 @@ class LoginCard extends MultiPageCard {
      */
     _submitLoginCallback(response) {
         if (response.Status == H.StatusCode.OK) {
+            var result = response.ResponseObject;
             // the session token and key should be saved in a cookie (httponly so we can't read it here)
             //  if 2FA challenge is required, display 2FA challenge screen
             // TODO implement 2FA challenge
@@ -91,8 +92,8 @@ class LoginCard extends MultiPageCard {
             //    'challenge_required' => ($user->Role->ChallengeIntervalMinutes>0),
             //    'password_change_required' => $userPassword->IsExpired(),
             //],
-            if (response.Data["login_result"]["authenticated"]) {
-                if (response.Data["login_result"]["password_change_required"]) {
+            if (result["authenticated"]) {
+                if (result["password_change_required"]) {
                     this.NavigateTo("changepassword");
                 } else {
                     // else refresh page. since logged in now, server should redirect to ?next arg
@@ -105,28 +106,31 @@ class LoginCard extends MultiPageCard {
             return;
         }
 
-        // display wrong email message, wrong password message, too many tries message, or account locked message
-        // handle if already logged in
-        // /response.Message
         if (response.Status == H.StatusCode.InternalServerError) {
             this.login_email.SetValidation(false, "There was a problem with the server.");
-        } else if (response.Data["validation_errors"][0]["message"] == "Already logged in.") {
-            this.login_email.SetValidation(false, "Already logged in.");
-            // Refresh page. since logged in now, server should redirect to ?next arg
-            window.location.hash = "";
-            location.reload();
-        } else if (response.Data["validation_errors"][0]["message"] == "The provided password is incorrect.") {
-            this.login_password.SetValidation(false, "Incorrect password.");
-        } else if (response.Data["validation_errors"][0]["message"] == "The provided email address does not match an account.") {
-            this.login_email.SetValidation(false, "Incorrect email.");
-        } else if (response.Data["validation_errors"][0]["message"] == "This account is locked due to too many failed login attempts.") {
-            this.login_email.SetValidation(false, "This account is locked due to too many failed login attempts.");
-        } else if (response.Data["validation_errors"][0]["message"] == "This account is locked.") {
-            this.login_email.SetValidation(false, "This account is locked.");
-        } else if (response.Data["validation_errors"][0]["message"] == "Account creation is incomplete. A validation email has been re-sent to your email address.") {
-            this.login_email.SetValidation(false, "Account creation is incomplete. A validation email has been re-sent to your email address.");
-        } else if (response.Data["validation_errors"][0]["message"] == "Unable to log in. Please contact the administrator.") {
-            this.login_email.SetValidation(false, "Unable to log in. Please contact the administrator.");
+        } else if (response.Status == H.StatusCode.BadRequest) {
+            switch (response.ResponseObject.Code) {
+                case "session-0003":
+                    this.login_email.SetValidation(false, "Incorrect email.");
+                    break;
+                case "session-0004":
+                case "session-0008":
+                    this.login_email.SetValidation(false, "Unable to log in. Please contact the administrator.");
+                    break;
+                case "session-0005":
+                    this.login_email.SetValidation(false, "This account is locked due to too many failed login attempts.");
+                    break;
+                case "session-0006":
+                    this.login_email.SetValidation(false, "Account creation is incomplete. A validation email has been re-sent to your email address.");
+                    break;
+                case "session-0007":
+                    this.login_password.SetValidation(false, "Incorrect password.");
+                    break;
+                default:
+                    console.log(response);
+                    this.login_email.SetValidation(false, "There was an unknown error.");
+                    break;
+            }
         } else {
             console.log(response);
             this.login_email.SetValidation(false, "There was an unknown error.");
@@ -140,18 +144,17 @@ class LoginCard extends MultiPageCard {
      * @param {H.AjaxResponse} response
      */
      _submitResetCallback(response) {
-        if (response.Status == H.StatusCode.OK) {
+        if (response.Status == H.StatusCode.NoContent) {
             // switch to #resetlinksent
             this.NavigateTo("resetlinksent");
             this._e.Nodes(this.id+"_requestresetpasswordform_submit").Enable();
             return;
         }
 
-        // display feedback message
-        if (response.Status == H.StatusCode.InternalServerError) {
-            this.reset_email.SetValidation(false, "There was a problem with the server.");
-        } else if (response.Data["validation_errors"][0]["message"] == "This user doesn't exist.") {
+        if (response.Status == H.StatusCode.NotFound) {
             this.reset_email.SetValidation(false, "The provided email address does not match an account.");
+        } else if (response.Status == H.StatusCode.InternalServerError) {
+            this.reset_email.SetValidation(false, "There was a problem with the server.");
         } else {
             console.log(response);
             this.reset_email.SetValidation(false, "There was an unknown error.");
@@ -174,10 +177,20 @@ class LoginCard extends MultiPageCard {
         }
 
         // display feedback message
-        if (response.Status == H.StatusCode.InternalServerError) {
+        if (response.Status == H.StatusCode.NotFound) {
+            this.change_current.SetValidation(false, "There is no matching account found.");
+        } else if (response.Status == H.StatusCode.InternalServerError) {
             this.change_current.SetValidation(false, "There was a problem with the server.");
-        } else if (response.Data["validation_errors"][0]["message"] == "The provided password is incorrect.") {
-            this.change_current.SetValidation(false, "Incorrect password. Please enter your current password.");
+        } else if (response.Status == H.StatusCode.BadRequest) {
+            switch (response.ResponseObject.Code) {
+                case "users-0012":
+                    this.change_current.SetValidation(false, "Incorrect password. Please enter your current password.");
+                    break;
+                default:
+                    console.log(response);
+                    this.change_current.SetValidation(false, "There was an unknown error.");
+                    break;
+            }
         } else {
             console.log(response);
             this.change_current.SetValidation(false, "There was an unknown error.");

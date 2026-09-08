@@ -3,6 +3,7 @@
 namespace Pivel\Hydro2\Services\Entity;
 
 use Countable;
+use PHPUnit\SebastianBergmann\Environment\Console;
 use Pivel\Hydro2\Extensions\Query;
 
 /**
@@ -34,6 +35,14 @@ class EntityCollection implements Countable
         }
 
         return $this->_repository->Read($this->baseQuery->And($query));
+    }
+
+    /**
+     * @return T[]
+     */
+    public function ReadEntire(?Query $query = null): array
+    {
+        return $this->_repository->Read($query);
     }
 
     /**

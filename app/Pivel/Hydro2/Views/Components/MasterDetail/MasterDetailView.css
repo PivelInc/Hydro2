@@ -68,7 +68,8 @@
 }
 
 .master-detail nav>h1 {
-    margin-top: 0;
+    margin-top: 5px;
+    margin-left: 45px;
 }
 
 .master-detail nav {
@@ -76,16 +77,49 @@
     overflow-x: hidden;
 }
 
-.master-detail .collapsible-left>.collapse-control {
+.master-detail .collapsible-left > .collapse-control {
     position: absolute;
-    top: 0;
-    left: 100%;
-    width: 2.5rem;
-    height: 2.5rem;
-    background: #222222cc;
+    top: 10px;
+    left: 10px;
+    /*width: 2.5rem;*/
+    /*height: 2.5rem;*/
+    padding: 9px 5px;
+    background: #222222aa;
     border: none;
     cursor: pointer;
     color: white;
+    z-index: 10;
+}
+
+.collapse-control > span {
+    display: block;
+    width: 30px;
+    height: 4px;
+    margin-bottom: 5px;
+    background-color: #ffffff;
+    border-radius: 3px;
+    transition: transform 0.5s ease, background-color 0.5s ease;
+}
+
+.collapse-control > span:first-child {
+    transform-origin: 0% 0%;
+    transform: rotate(45deg) translate(-1px, -1px);
+}
+
+.collapse-control > span:nth-child(2) {
+    transform: scale(0, 0.2);
+    background: inherit;
+}
+
+.collapse-control > span:nth-child(3) {
+    transform-origin: 0% 100%;
+    transform: rotate(-45deg) translate(-1px, 1px);
+    margin-bottom: 0;
+}
+
+.master-detail .collapsible-left.collapsed > .collapse-control > span {
+    transform: none;
+    background-color: #ffffff;
 }
 
 .master-detail .collapsible-left {

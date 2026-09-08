@@ -2,11 +2,17 @@
 
 namespace Pivel\Hydro2\Services\Entity;
 
+use DateTime;
+use DateTimeZone;
+use Exception;
 use Pivel\Hydro2\Exceptions\Database\TableNotFoundException;
 use Pivel\Hydro2\Extensions\Query;
 use Pivel\Hydro2\Models\Database\Order;
 use Pivel\Hydro2\Models\EntityDefinition;
+use Pivel\Hydro2\Models\EntityFieldDefinition;
 use Pivel\Hydro2\Models\EntityPersistenceProfile;
+use Pivel\Hydro2\Models\Geometry\Geometry;
+use Pivel\Hydro2\Models\Uuid;
 
 class JsonPersistenceProvider implements IEntityPersistenceProvider
 {
@@ -103,7 +109,7 @@ class JsonPersistenceProvider implements IEntityPersistenceProvider
         if ($query !== null) {
             // Filter results that don't match the query's filter tree
             $results = array_filter($results, function($row) use ($query) {
-                $r = self::RowMatchesQuery($row, $query);
+                $r = $this->RowMatchesQuery($row, $query);
                 return $r;
             });
 
@@ -143,7 +149,7 @@ class JsonPersistenceProvider implements IEntityPersistenceProvider
         $results = $data[$collection->GetName()];
         // Filter results that don't match the query's filter tree
         $results = array_filter($results, function($row) use ($query) {
-            return self::RowMatchesQuery($row, $query);
+            return $this->RowMatchesQuery($row, $query);
         });
 
         return count($results);
@@ -242,7 +248,7 @@ class JsonPersistenceProvider implements IEntityPersistenceProvider
         $deletedItems = 0;
         foreach ($data[$collection->GetName()] as $i => $row) {
             // Filter results that don't match the query's filter tree
-            if (!self::RowMatchesQuery($row, $query)) {
+            if (!$this->RowMatchesQuery($row, $query)) {
                 continue;
             }
 
@@ -255,13 +261,13 @@ class JsonPersistenceProvider implements IEntityPersistenceProvider
         return $deletedItems;
     }
 
-    private static function RowMatchesQuery(array $row, ?Query $query) : bool
+    private function RowMatchesQuery(array $row, ?Query $query) : bool
     {
         if ($query === null) {
             return true;
         }
 
-        return self::RowMatchesFilterTree($row, $query->GetFilterTree(), $query->GetFilterParameters());
+        return self::RowMatchesFilterTree($row, $query->GetFilterTree(), $query->GetConvertedFilterParameters($this));
     }
 
     private static function RowMatchesFilterTree(array $row, array $filterTree, array $filterParameters) : bool
@@ -276,6 +282,14 @@ class JsonPersistenceProvider implements IEntityPersistenceProvider
             if ($op == Query::EQUAL) {
                 $r = (($value == $testValue) xor $neg) ? 'true' : 'false';
                 return ($value == $testValue) xor $neg;
+            }
+            
+            if ($filterTree['operator'] == Query::ST_WITHIN) {
+                throw new Exception('ST_Within is not supported by JsonPersistenceProvider.');
+            }
+
+            if ($filterTree['operator'] == Query::ST_CONTAINS) {
+                throw new Exception('ST_Contains is not supported by JsonPersistenceProvider.');
             }
 
             if ($op == Query::GREATER_THAN) {
@@ -362,5 +376,53 @@ class JsonPersistenceProvider implements IEntityPersistenceProvider
     
         // Look for a match and return bool
         return (bool) preg_match($expr, $input);
+    }
+
+    public static function ConvertValueToStorage(EntityFieldDefinition $field, mixed $value): mixed {
+        if ($value instanceof DateTime) {
+            /** @var DateTime $value */
+            if ($field->IsNullable && $value == null) {
+                return null;
+            } else {
+                return $value->setTimezone(new DateTimeZone('UTC'))->format('c');
+            }
+        }
+
+        if ($value instanceof Uuid) { // uuid
+            /** @var Uuid $value */
+            $value = (string)$value;
+        }
+
+        if ($field->PropertyType == 'bool') {
+            $value = $value ? 1 : 0;
+        }
+
+        if (is_subclass_of($field->PropertyType, Geometry::class) && is_subclass_of($value, Geometry::class)) {
+            /** @var Geometry $value */
+            return $value->jsonSerialize();
+        }
+
+        return $value;
+    }
+
+    public static function ConvertValueFromStorage(EntityFieldDefinition $field, mixed $value): mixed {
+        if ($field->PropertyType == DateTime::class) {
+            if ($field->IsNullable && $value == null) {
+                return null;
+            } else {
+                return new DateTime($value, new DateTimeZone('UTC'));
+            }
+        }
+
+        if ($field->PropertyType == Uuid::class) { // uuid
+            return Uuid::ParseFromString($value);
+        }
+
+        if (is_subclass_of($field->PropertyType, Geometry::class)) {
+            /** @var Geometry $value */
+            return ($field->PropertyType)::jsonDeserialize($value);
+        }
+
+        return $value;
     }
 }

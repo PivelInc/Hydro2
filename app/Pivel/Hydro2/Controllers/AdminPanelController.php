@@ -99,7 +99,7 @@ class AdminPanelController extends BaseController
 
         $view = new AdminPanelView($nodes, $this->request->Args['path']??'');
         return new Response(
-            content: $view->Render(),
+            content: $view->Render($this->_app),
         );
     }
 }

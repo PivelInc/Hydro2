@@ -3,28 +3,39 @@ var H = {
         Status;
         ResponseText;
         ResponseObject;
-        ErrorMessage=null;
-        ErrorCode=null;
-        Data=null;
+        IsErrorResponse = false;
 
         constructor(statusCode, responseText) {
             this.Status = statusCode;
             this.ResponseText = responseText;
             try {
                 this.ResponseObject = JSON.parse(responseText);
-                if ("message" in this.ResponseObject) {
-                    this.ErrorMessage = this.ResponseObject["message"];
-                }
                 if ("code" in this.ResponseObject) {
-                    this.ErrorCode = this.ResponseObject["code"];
-                }
-                if ("data" in this.ResponseObject) {
-                    this.Data = this.ResponseObject["data"];
+                    this.IsErrorResponse = true;
+                    var er = new H.ErrorResponse();
+                    er.Code = this.ResponseObject["code"];
+                    if ("message" in this.ResponseObject) {
+                        er.Message = this.ResponseObject["message"];
+                    }
+                    if ("detail" in this.ResponseObject) {
+                        er.Detail = this.ResponseObject["detail"];
+                    }
+                    if ("help" in this.ResponseObject) {
+                        er.Help = this.ResponseObject["help"];
+                    }
+                    this.ResponseObject = er;
                 }
             } catch {
                 this.ResponseObject = null;
             }
         }
+    },
+
+    ErrorResponse: class {
+        Code = null;
+        Message = null;
+        Detail = null;
+        Help = null;
     },
 
     AjaxRequest: class {
@@ -83,14 +94,6 @@ var H = {
             });
             req.send(this.Body);
         }
-    },
-
-    // TODO add remaining status codes
-    StatusCode: {
-        OK: 200,
-        BadRequest: 400,
-        NotFound: 404,
-        InternalServerError: 500,
     },
 
     HtmlEncode: function(s) {
@@ -279,5 +282,75 @@ var H = {
         Count() {
             return this._nodeList.length;
         }
-    }
+    },
+
+    StatusCode: {
+        Continue: 100,
+        SwitchingProtocols: 101,
+        Processing: 102,
+        EarlyHints: 103,
+        
+        OK: 200,
+        Created: 201,
+        Accepted: 202,
+        NonAuthoritativeInformation: 203,
+        NoContent: 204,
+        ResetContent: 205,
+        PartialContent: 206,
+        MultiStatus: 207,
+        AlreadyReported: 208,
+        IMUsed: 226,
+
+        MultipleChoices: 300,
+        MovedPermanently: 301,
+        Found: 302,
+        SeeOther: 303,
+        NotModified: 304,
+        UseProxy: 305,
+        //SwitchProxy: 306,
+        TemporaryRedirect: 307,
+        PermanentRedirect: 308,
+
+        BadRequest: 400,
+        Unauthorized: 401,
+        PaymentRequired: 402,
+        Forbidden: 403,
+        NotFound: 404,
+        MethodNotAllowed: 405,
+        NotAcceptable: 406,
+        ProxyAuthenticationRequired: 407,
+        RequestTimeout: 408,
+        Conflict: 409,
+        Gone: 410,
+        LengthRequired: 411,
+        PreconditionFailed: 412,
+        PayloadTooLarge: 413,
+        URITooLong: 414,
+        UnsupportedMediaType: 415,
+        RangeNotSatisfiable: 416,
+        ExpectationFailed: 417,
+        ImATeapot: 418,
+        MisdirectedRequest: 421,
+        UnprocessableEntity: 422,
+        Locked: 423,
+        FailedDependency: 424,
+        TooEarly: 425,
+        UpgradeRequired: 426,
+        PreconditionRequired: 428,
+        TooManyRequests: 429,
+        RequestHeaderFieldsTooLarge: 431,
+        UnavailableForLegalReasons: 451,
+
+        InternalServerError: 500,
+        NotImplemented: 501,
+        BadGateway: 502,
+        ServiceUnavailable: 503,
+        GatewayTimeout: 504,
+        HTTPVersionNotSupported: 505,
+        VariantAlsoNegotiates: 506,
+        InsufficientStorage: 507,
+        LoopDetected: 508,
+        NotExtended: 510,
+        NetworkAuthenticationRequired: 511,
+    },
 }

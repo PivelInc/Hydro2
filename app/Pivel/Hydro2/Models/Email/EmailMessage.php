@@ -3,6 +3,7 @@
 namespace Pivel\Hydro2\Models\Email;
 
 use Exception;
+use Pivel\Hydro2\Hydro2;
 use Pivel\Hydro2\Views\EmailViews\BaseEmailView;
 
 class EmailMessage
@@ -35,12 +36,11 @@ class EmailMessage
      * @param EmailAddress[] $bcc
      * @param EmailAddress $replyTo
      */
-    public function __construct(BaseEmailView $view, array $to, array $cc=[], array $bcc=[], ?EmailAddress $replyTo=null)
+    public function __construct(BaseEmailView $view, Hydro2 $app, array $to, array $cc=[], array $bcc=[], ?EmailAddress $replyTo=null)
     {
-        $this->htmlBody = $view->Render();
-        $this->plaintextBody = $view->RenderPlaintext();
-        $this->subject = $view->GetSubject();
-
+        $this->htmlBody = $view->Render($app);
+        $this->plaintextBody = $view->RenderPlaintext($app);
+        $this->subject = $view->GetSubject($app);
         $this->To = $to;
         $this->Cc = $cc;
         $this->Bcc = $bcc;

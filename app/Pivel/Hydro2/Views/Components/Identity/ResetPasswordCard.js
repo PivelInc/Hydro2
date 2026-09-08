@@ -34,7 +34,7 @@ class ResetPasswordCard extends MultiPageCard {
      * @param {H.AjaxResponse} response
      */
      _submitResetCallback(response) {
-        if (response.Status == H.StatusCode.OK) {
+        if (response.Status == H.StatusCode.NoContent) {
             this.NavigateTo("resetpasswordsuccess");
             this._e.Nodes(this.id+"_resetpasswordform_submit").Enable();
             return;

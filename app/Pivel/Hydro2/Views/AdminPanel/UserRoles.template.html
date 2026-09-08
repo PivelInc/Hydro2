@@ -156,7 +156,8 @@
                                     value += "...and " + (row['permissions'].length-2) + " more";
                                     break;
                                 }
-                                value += ""+row["permissions"][i]["name"]+"<br />";
+                                var name = user_role_avail_permissions[row["permissions"][i]["key"]]["name"] ?? row["permissions"][i]["name"] ?? row["permissions"][i]["key"];
+                                value += ""+name+"<br />";
                             }
                             if (value == "") {
                                 value = "None";
@@ -195,7 +196,9 @@
                 }
             }
 
-            var user_roles_table = new RichTable("#user_roles_table", "/api/hydro2/identity/userroles", "user_roles", user_roles_table_renderer);
+            fillUserRolePermissions();
+
+            var user_roles_table = new RichTable("#user_roles_table", "/api/hydro2/identity/userroles", user_roles_table_renderer);
             user_roles_table._showDetailHandler = userRolesShowDetailCallback;
             user_roles_table._showEditHandler = userRolesShowEditCallback;
 
@@ -220,8 +223,6 @@
             var user_roles_edit_max_2fa_attempts = new FormField("#user_role_edit_form_max_2fa_attempts");
             var user_roles_edit_permissions = new RichSelect("#user_role_edit_form_permissions");
 
-            fillUserRolePermissions();
-
             H.Nodes("#user_role_create_form").AddEventHandler("submit", onUserRoleCreateFormSubmit);
             H.Nodes("#user_role_edit_form").AddEventHandler("submit", onUserRoleEditFormSubmit);
 
@@ -235,7 +236,7 @@
             function _fillUserRolePermissionsCallback(response) {
                 if (response.Status == H.StatusCode.OK) {
                     var options = [];
-                    for (const p of response.Data["permissions"]) {
+                    for (const p of response.ResponseObject) {
                         user_role_avail_permissions[p["fullkey"]] = p;
                         options.push({
                             "value": p["fullkey"],
@@ -261,7 +262,7 @@
                 var permissions = "";
                 for (const p of data["permissions"]) {
                     permissions += "<tr>";
-                    permissions += "<td>" + p["name"] + "<br />";
+                    permissions += "<td>" + user_role_avail_permissions[p["key"]]["name"] + "<br />";
                     permissions += "<small>" + user_role_avail_permissions[p["key"]]["vendor"] + " / ";
                     permissions += user_role_avail_permissions[p["key"]]["package"] + " / ";
                     permissions += user_role_avail_permissions[p["key"]]["key"] + "</small></td>";
@@ -317,7 +318,7 @@
             }
 
             function SubmitUserRoleEditForm() {
-                H.Nodes("#user_roles_edit_form_submit").Disable();
+                H.Nodes("#user_role_edit_form_submit").Disable();
                 var request = new H.AjaxRequest("POST", "/api/hydro2/identity/userroles/" + user_roles_edit_id.input.Value());
                 request.SetJsonData({
                     "name": user_roles_edit_name.input.Value(),
@@ -334,7 +335,7 @@
             }
 
             function _submitUserRoleCallback(response, successMessage) {
-                if (response.Status == H.StatusCode.OK) {
+                if (response.Status == H.StatusCode.Created || response.Status == H.StatusCode.NoContent) {
                     // display toast (success)
                     user_roles_table.ShowToast(successMessage, false, "success");
                     // trigger table refresh
@@ -371,9 +372,6 @@
                     user_roles_table.ShowToast("There was a problem with the server.", false, "error");
                 } else if (response.Status == H.StatusCode.NotFound) {
                     user_roles_table.ShowToast("You don't have permission to do this.", false, "error");
-                } else if (response.Data["validation_errors"][0]["name"] == "permissions") {
-                    user_roles_create_permissions.SetValidation(false, response.Data["validation_errors"][0]["message"]);
-                    user_roles_table.ShowToast(response.Data["validation_errors"][0]["message"], false, "error");
                 } else {
                     console.log(response);
                     user_roles_table.ShowToast("There was an unknown error.", false, "error");

@@ -82,7 +82,7 @@ class IdentityService implements IIdentityService
             return null;
         }
 
-        $this->_logger->Info('Pivel/Hydro2', "Created new user with email address {$email} and id {$user->RandomId}.");
+        $this->_logger->Info('Pivel/Hydro2', "Created new user with email address {$email} and id {$user->Id}.");
 
         return $user;
     }
@@ -92,9 +92,9 @@ class IdentityService implements IIdentityService
         $success = $this->userRepository->Update($user);
 
         if ($success) {
-            $this->_logger->Info('Pivel/Hydro2', "Updated user {$user->RandomId}.");
+            $this->_logger->Info('Pivel/Hydro2', "Updated user {$user->Id}.");
         } else {
-            $this->_logger->Error('Pivel/Hydro2', "Failed to update user {$user->RandomId}.");
+            $this->_logger->Error('Pivel/Hydro2', "Failed to update user {$user->Id}.");
         }
 
         return $success;
@@ -109,9 +109,9 @@ class IdentityService implements IIdentityService
         $success = $this->userRepository->Delete($user);
 
         if ($success) {
-            $this->_logger->Warn('Pivel/Hydro2', "Deleted user {$user->RandomId}.");
+            $this->_logger->Warn('Pivel/Hydro2', "Deleted user {$user->Id}.");
         } else {
-            $this->_logger->Error('Pivel/Hydro2', "Failed to delete user {$user->RandomId}.");
+            $this->_logger->Error('Pivel/Hydro2', "Failed to delete user {$user->Id}.");
         }
 
         return $success;
@@ -133,13 +133,13 @@ class IdentityService implements IIdentityService
             $this->_logger->Info('Pivel/Hydro2', "Generated new email verification URL for user {$user->Email}.");
         }
         $token = $user->GetEmailVerificationToken();
-        $url = "{$request->baseUrl}/verifyuseremail/{$user->RandomId}?token={$token}";
+        $url = "{$request->baseUrl}/verifyuseremail/{$user->Id}?token={$token}";
         return $url;
     }
 
-    public function GetUserFromRandomId(string $randomId): ?User
+    public function GetUserFromId(string $uuid): ?User
     {
-        $users = $this->GetUsersMatchingQuery((new Query())->Equal('random_id', $randomId));
+        $users = $this->GetUsersMatchingQuery((new Query())->Equal('uuid', $uuid));
 
         if (count($users) != 1) {
             return null;
@@ -153,6 +153,7 @@ class IdentityService implements IIdentityService
         $users = $this->GetUsersMatchingQuery((new Query())->Equal('email', $email));
 
         if (count($users) != 1) {
+            $this->_logger->Debug("Pivel/Hydro2", "Unable to find a user matching \"{$email}\"");
             return null;
         }
 
@@ -161,22 +162,23 @@ class IdentityService implements IIdentityService
 
     // ==== Session-related methods ====
 
-    public function GetSessionFromRequest(Request $request): ?Session
+    public function GetSessionFromRequest(Request $request, $random_id=null, $key=null, $ignore_browser=false): ?Session
     {
-        $random_id_and_key = explode(';', $request->getCookie('sridkey', ''), 2);
+        $random_id_and_key = explode(';', $request->getCookie('sridkey', ""), 2);
 
-        if (count($random_id_and_key) != 2) {
+        if (count($random_id_and_key) != 2 && $random_id === null && $key === null) {
+            $this->_logger->Warn('Pivel/Hydro2', "No valid session cookie was provided from {$request->getClientAddress()}.");
             setcookie('sridkey', '', time()-3600, '/');
             return null;
         }
 
-        $random_id = $random_id_and_key[0];
-        $key = $random_id_and_key[1];
+        $random_id ??= $random_id_and_key[0];
+        $key ??= $random_id_and_key[1];
 
         /** @var Session[] */
         $sessions = $this->sessionRepository->Read((new Query())->Equal('random_id', $random_id));
         if (count($sessions) != 1) {
-            $this->_logger->Warn('Pivel/Hydro2', "A nonexistant Session ID was provided from {$request->getClientAddress()}.");
+            $this->_logger->Warn('Pivel/Hydro2', "A nonexistant Session ID ({$random_id}) was provided from {$request->getClientAddress()}.");
             setcookie('sridkey', '', time()-3600, '/');
             return null;
         }
@@ -187,13 +189,14 @@ class IdentityService implements IIdentityService
             return null;
         }
 
-        if ($sessions[0]->Browser !== $request->UserAgent) {
+        if (!$ignore_browser && ($sessions[0]->Browser !== $request->UserAgent)) {
             $this->_logger->Warn('Pivel/Hydro2', "A session previously used on {$sessions[0]->Browser} was attempted to be used on {$request->UserAgent} by {$request->getClientAddress()}.");
             setcookie('sridkey', '', time()-3600, '/');
             return null;
         }
 
         if (!$sessions[0]->IsValid()) {
+            $this->_logger->Warn('Pivel/Hydro2', "A session that is no longer valid was attempted to be used from {$request->getClientAddress()}.");
             setcookie('sridkey', '', time()-3600, '/');
             return null;
         }
@@ -219,7 +222,7 @@ class IdentityService implements IIdentityService
         return $sessions[0];
     }
 
-    public function StartSession(User $user, Request $request): Session
+    public function StartSession(User $user, Request $request): ?Session
     {
         $sessionStarts = new DateTime(timezone:new DateTimeZone('UTC'));
         $sessionExpires = (clone $sessionStarts)->modify("+{$user->GetUserRole()->MaxSessionLengthMinutes} minutes");
@@ -237,7 +240,10 @@ class IdentityService implements IIdentityService
             lastIP: $request->getClientAddress(),
         );
 
+        $this->_logger->Debug('Pivel/Hydro2', "Starting new session ".json_encode($session));
+
         if (!$this->sessionRepository->Create($session)) {
+            $this->_logger->Error('Pivel/Hydro2', "Failed to start a new session for user {$user->Email}.");
             return null;
         }
 
@@ -344,7 +350,7 @@ class IdentityService implements IIdentityService
 
     public function GetPasswordResetUrl(Request $request, User $user, PasswordResetToken $token): string
     {
-        return "{$request->baseUrl}/resetpassword/{$user->RandomId}?token={$token->ResetToken}";
+        return "{$request->baseUrl}/resetpassword/{$user->Id}?token={$token->ResetToken}";
     }
 
     // ============================

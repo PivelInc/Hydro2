@@ -9,7 +9,6 @@ use Pivel\Hydro2\Attributes\Entity\EntityField;
 use Pivel\Hydro2\Attributes\Entity\EntityPrimaryKey;
 use Pivel\Hydro2\Attributes\Entity\ForeignEntityManyToOne;
 use Pivel\Hydro2\Models\Database\ReferenceBehaviour;
-use Pivel\Hydro2\Models\Database\Type;
 
 #[Entity(CollectionName: 'hydro2_user_passwords')]
 class UserPassword
@@ -17,10 +16,10 @@ class UserPassword
     #[EntityField(FieldName: 'id', AutoIncrement: true)]
     #[EntityPrimaryKey]
     public ?int $Id = null;
-    #[EntityField(FieldName: 'user_id')]
+    #[EntityField(FieldName: 'user_uuid')]
     #[ForeignEntityManyToOne(OnDelete: ReferenceBehaviour::CASCADE)]
     private ?User $user;
-    #[EntityField(FieldName: 'password_hash', FieldType: Type::TINYTEXT)]
+    #[EntityField(FieldName: 'password_hash')]
     public string $PasswordHash;
     #[EntityField(FieldName: 'start')]
     public ?DateTime $StartTime;

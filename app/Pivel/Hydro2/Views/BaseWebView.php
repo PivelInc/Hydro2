@@ -4,10 +4,11 @@ namespace Pivel\Hydro2\Views;
 
 use Pivel\Hydro2\Extensions\RequireScript;
 use Pivel\Hydro2\Extensions\RequireStyle;
+use Pivel\Hydro2\Hydro2;
 use ReflectionClass;
 
-#[RequireScript('/assets/Pivel/Hydro2/hydro2-2.2.0.1.js', Inline: false)]
-#[RequireStyle('/assets/Pivel/Hydro2/hydro2-2.2.0.1.css', Inline: false)]
+#[RequireScript('/assets/Pivel/Hydro2/hydro2-2.3.1.0.js', Inline: false)]
+#[RequireStyle('/assets/Pivel/Hydro2/hydro2-2.3.1.0.css', Inline: false)]
 class BaseWebView extends BaseView
 {
     protected $Scripts = '';
@@ -40,8 +41,8 @@ class BaseWebView extends BaseView
      * Should child classes that extend BaseWebView be able to override the scripts?
      * 
      */
-    public function Render($isOuter=true) : string {
-        $renderedContent = parent::Render(isOuter:false);
+    public function Render(Hydro2 $app, bool $isOuter=true) : string {
+        $renderedContent = parent::Render($app, isOuter:false);
 
         if (!$isOuter) {
             return $renderedContent;

@@ -2,10 +2,12 @@
 
 namespace Pivel\Hydro2\Controllers;
 
+use LightningTransport\TaxiSite\Views\NotFound;
 use Pivel\Hydro2\Extensions\Query;
 use Pivel\Hydro2\Extensions\Route;
 use Pivel\Hydro2\Extensions\RoutePrefix;
 use Pivel\Hydro2\Models\Database\Order;
+use Pivel\Hydro2\Models\ErrorMessage;
 use Pivel\Hydro2\Models\HTTP\JsonResponse;
 use Pivel\Hydro2\Models\HTTP\Method;
 use Pivel\Hydro2\Models\HTTP\Request;
@@ -43,49 +45,11 @@ class UserRoleController extends BaseController
             return new Response(status: StatusCode::NotFound);
         }
 
-        $query = new Query();
-        $query->Limit($this->request->Args['limit'] ?? -1);
-        $query->Offset($this->request->Args['offset'] ?? 0);
-        
-        if (isset($this->request->Args['sort_by'])) {
-            $dir = Order::tryFrom(strtoupper($this->request->Args['sort_dir']??'asc'))??Order::Ascending;
-            $query->OrderBy($this->request->Args['sort_by']??'id', $dir);
-        }
-
-        if (isset($this->request->Args['q']) && !empty($this->request->Args['q'])) {
-            $query->Like('name', '%' . str_replace('%', '\\%', str_replace('_', '\\_', $this->request->Args['q'])) . '%');
-        }
+        $query = Query::SortSearchPageQueryFromRequest($this->request, searchField:"name");
 
         $userRoles = $this->_identityService->GetUserRolesMatchingQuery($query);
-        $permissions = $this->_identityService->GetAvailablePermissions();
 
-        $userRoleResults = [];
-        foreach ($userRoles as $userRole) {
-            $userRoleResults[] = [
-                'id' => $userRole->Id,
-                'name' => $userRole->Name,
-                'description' => $userRole->Description,
-                'max_login_attempts' => $userRole->MaxLoginAttempts,
-                'max_session_length' => $userRole->MaxSessionLengthMinutes,
-                'max_password_age' => $userRole->MaxPasswordAgeDays,
-                'days_until_2fa_setup_required' => $userRole->DaysUntil2FASetupRequired,
-                'challenge_interval' => $userRole->ChallengeIntervalMinutes,
-                'max_2fa_attempts' => $userRole->Max2FAAttempts,
-                'permissions' => array_map(function ($p) use ($permissions) {
-                    /** @var UserPermission $p */
-                    return [
-                        'key' => $p->PermissionKey,
-                        'name' => isset($permissions[$p->PermissionKey]) ? $permissions[$p->PermissionKey]->Name : 'Unknown Permission',
-                    ];
-                }, $userRole->GetPermissions()),
-            ];
-        }
-
-        return new JsonResponse(
-            data:[
-                'user_roles' => $userRoleResults,
-            ],
-        );
+        return new JsonResponse($userRoles);
     }
 
     #[Route(Method::POST, '')]
@@ -111,28 +75,23 @@ class UserRoleController extends BaseController
         $availablePermissions = $this->_identityService->GetAvailablePermissions();
 
         // validate permissions. can't add yet since we don't know that the new UserRole's ID will be.
+        $missingPermissions = [];
         foreach ($requestedPermissions as $permission) {
             if (!isset($availablePermissions[$permission])) {
-                return new JsonResponse(
-                    data: [
-                        'validation_errors' => [
-                            [
-                                'name' => 'permissions',
-                                'description' => 'User Role\'s permissions',
-                                'message' => "The permission '{$permission}' doesn't exist.",
-                            ],
-                        ],
-                    ],
-                    status: StatusCode::BadRequest,
-                    error_message: 'One or more arguments are invalid.'
-                );
+                $missingPermissions[] = new ErrorMessage('userroles-0001', 'Invalid parameter "permission"', "The permission '{$permission}' doesn't exist.");
             }
+        }
+        if (count($missingPermissions) > 0) {
+            return new JsonResponse(
+                $missingPermissions,
+                status: StatusCode::UnprocessableEntity,
+            );
         }
 
         if ($this->_identityService->CreateNewUserRole($userRole) === null) {
             return new JsonResponse(
+                new ErrorMessage('userroles-0002', 'Failed to create user role', "Failed to create user role."),
                 status: StatusCode::InternalServerError,
-                error_message: "There was a problem with the database."
             );
         }
 
@@ -140,36 +99,17 @@ class UserRoleController extends BaseController
         foreach ($requestedPermissions as $permission) {
             if (!$userRole->GrantPermission($permission)) {
                 return new JsonResponse(
+                    new ErrorMessage('userroles-0003', 'Failed to grant permission', "Failed to grant permission '{$permission}'."),
                     status: StatusCode::InternalServerError,
-                    error_message: 'The UserRole was generated, but there was a problem with the database while adding permissions.'
                 );
             }
         }
 
-        $permissions = $this->_identityService->GetAvailablePermissions();
-
-        $userRoleResults = [[
-            'id' => $userRole->Id,
-            'name' => $userRole->Name,
-            'description' => $userRole->Description,
-            'max_login_attempts' => $userRole->MaxLoginAttempts,
-            'max_session_length' => $userRole->MaxSessionLengthMinutes,
-            'max_password_age' => $userRole->MaxPasswordAgeDays,
-            'days_until_2fa_setup_required' => $userRole->DaysUntil2FASetupRequired,
-            'challenge_interval' => $userRole->ChallengeIntervalMinutes,
-            'max_2fa_attempts' => $userRole->Max2FAAttempts,
-            'permissions' => array_map(function ($p) use ($permissions) {
-                /** @var UserPermission $p */
-                return [
-                    'key' => $p->PermissionKey,
-                    'name' => (isset($permissions[$p->PermissionKey]) ? $permissions[$p->PermissionKey]->Name : 'Unknown Permission'),
-                ];
-            }, $userRole->GetPermissions()),
-        ]];
-
         return new JsonResponse(
-            data:[
-                'user_roles' => $userRoleResults,
+            $userRole,
+            status: StatusCode::Created,
+            headers: [
+                'Location' => $this->request->fullUrl . "/{$userRole->Id}",
             ],
         );
     }
@@ -190,47 +130,10 @@ class UserRoleController extends BaseController
         $userRole = $this->_identityService->GetUserRoleFromId($this->request->Args['id']);
 
         if ($userRole === null) {
-            return new JsonResponse(
-                data: [
-                    'validation_errors' => [
-                        [
-                            'name' => 'id',
-                            'description' => 'User Role ID.',
-                            'message' => 'This user role doesn\'t exist.',
-                        ],
-                    ],
-                ],
-                status: StatusCode::BadRequest,
-                error_message: 'One or more arguments are invalid.'
-            );
+            return new Response(status: StatusCode::NotFound);
         }
 
-        $permissions = $this->_identityService->GetAvailablePermissions();
-
-        $userRoleResults = [[
-            'id' => $userRole->Id,
-            'name' => $userRole->Name,
-            'description' => $userRole->Description,
-            'max_login_attempts' => $userRole->MaxLoginAttempts,
-            'max_session_length' => $userRole->MaxSessionLengthMinutes,
-            'max_password_age' => $userRole->MaxPasswordAgeDays,
-            'days_until_2fa_setup_required' => $userRole->DaysUntil2FASetupRequired,
-            'challenge_interval' => $userRole->ChallengeIntervalMinutes,
-            'max_2fa_attempts' => $userRole->Max2FAAttempts,
-            'permissions' => array_map(function ($p) use ($permissions) {
-                /** @var UserPermission $p */
-                return [
-                    'key' => $p->PermissionKey,
-                    'name' => (isset($permissions[$p->PermissionKey]) ? $permissions[$p->PermissionKey]->Name : 'Unknown Permission'),
-                ];
-            }, $userRole->GetPermissions()),
-        ]];
-
-        return new JsonResponse(
-            data:[
-                'user_roles' => $userRoleResults,
-            ],
-        );
+        return new JsonResponse($userRole);
     }
 
     #[Route(Method::POST, '{id}')]
@@ -245,19 +148,7 @@ class UserRoleController extends BaseController
         $userRole = $this->_identityService->GetUserRoleFromId($this->request->Args['id']);
 
         if ($userRole === null) {
-            return new JsonResponse(
-                data: [
-                    'validation_errors' => [
-                        [
-                            'name' => 'id',
-                            'description' => 'User Role ID.',
-                            'message' => 'This user role doesn\'t exist.',
-                        ],
-                    ],
-                ],
-                status: StatusCode::BadRequest,
-                error_message: 'One or more arguments are invalid.'
-            );
+            return new Response(status: StatusCode::NotFound);
         }
 
         $userRole->Name = $this->request->Args['name']??$userRole->Name;
@@ -268,60 +159,52 @@ class UserRoleController extends BaseController
         $userRole->ChallengeIntervalMinutes = intval($this->request->Args['challenge_interval']??$userRole->ChallengeIntervalMinutes);
         $userRole->Max2FAAttempts = intval($this->request->Args['max_2fa_attempts']??$userRole->Max2FAAttempts);
 
-        $requestedPermissionKeys = $this->request->Args['permissions']??[];
+        $requestedPermissions = $this->request->Args['permissions']??[];
         $availablePermissions = $this->_identityService->GetAvailablePermissions();
 
-        // validate new permissions
-        foreach ($requestedPermissionKeys as $permissionKey) {
-            if (!isset($availablePermissions[$permissionKey])) {
-                return new JsonResponse(
-                    data: [
-                        'validation_errors' => [
-                            [
-                                'name' => 'permissions',
-                                'description' => 'User Role\'s permissions',
-                                'message' => "The permission '{$permissionKey}' doesn't exist.",
-                            ],
-                        ],
-                    ],
-                    status: StatusCode::BadRequest,
-                    error_message: 'One or more arguments are invalid.'
-                );
+        $missingPermissions = [];
+        foreach ($requestedPermissions as $permission) {
+            if (!isset($availablePermissions[$permission])) {
+                $missingPermissions[] = new ErrorMessage('userroles-0001', 'Invalid parameter "permission"', "The permission '{$permission}' doesn't exist.");
             }
+        }
+        if (count($missingPermissions) > 0) {
+            return new JsonResponse(
+                $missingPermissions,
+                status: StatusCode::UnprocessableEntity,
+            );
         }
 
         if (!$this->_identityService->UpdateUserRole($userRole)) {
             return new JsonResponse(
+                new ErrorMessage('userroles-0004', 'Failed to update user role', "Failed to update user role."),
                 status: StatusCode::InternalServerError,
-                error_message: "There was a problem with the database."
             );
         }
 
         // add new permissions
-        foreach ($requestedPermissionKeys as $permissionKey) {
+        foreach ($requestedPermissions as $permissionKey) {
             if (!$userRole->GrantPermission($permissionKey)) {
                 return new JsonResponse(
+                    new ErrorMessage('userroles-0003', 'Failed to grant permission', "Failed to grant permission '{$permission}'."),
                     status: StatusCode::InternalServerError,
-                    error_message: 'The UserRole was updated, but there was a problem with the database while adding permissions.'
                 );
             }
         }
         // remove permissions
         foreach ($userRole->GetPermissions() as $permission) {
-            if (in_array($permission->PermissionKey, $requestedPermissionKeys)) {
+            if (in_array($permission->PermissionKey, $requestedPermissions)) {
                 continue;
             }
             if (!$userRole->DenyPermission($permission->PermissionKey)) {
                 return new JsonResponse(
+                    new ErrorMessage('userroles-0005', 'Failed to deny permission', "Failed to deny permission '{$permission->PermissionKey}'."),
                     status: StatusCode::InternalServerError,
-                    error_message: 'The UserRole was updated, but there was a problem with the database while removing permissions.'
                 );
             }
         }
 
-        return new JsonResponse(
-            status:StatusCode::OK
-        );
+        return new Response(status: StatusCode::NoContent);
     }
 
     #[Route(Method::DELETE, '{id}')]
@@ -336,51 +219,29 @@ class UserRoleController extends BaseController
         $userRole = $this->_identityService->GetUserRoleFromId($this->request->Args['id']);
 
         if ($userRole === null) {
-            return new JsonResponse(
-                data: [
-                    'validation_errors' => [
-                        [
-                            'name' => 'id',
-                            'description' => 'User Role ID.',
-                            'message' => 'This user role doesn\'t exist.',
-                        ],
-                    ],
-                ],
-                status: StatusCode::BadRequest,
-                error_message: 'One or more arguments are invalid.'
-            );
+            return new Response(status: StatusCode::NotFound);
         }
 
         if ($userRole->GetUserCount() != 0) {
             return new JsonResponse(
-                data: [
-                    'validation_errors' => [
-                        [
-                            'name' => 'id',
-                            'description' => 'User Role ID.',
-                            'message' => 'Cannot delete a role while there are users with this role.',
-                        ],
-                    ],
-                ],
-                status: StatusCode::BadRequest,
-                error_message: 'One or more arguments are invalid.',
+                new ErrorMessage('userroles-0006', 'Unable to delete user role', "Cannot delete a role while there are users with this role."),
+                status: StatusCode::Conflict,
             );
         }
 
         if (!$this->_identityService->DeleteUserRole($userRole)) {
             return new JsonResponse(
+                new ErrorMessage('userroles-0007', 'Failed to delete user role', "Failed to delete user role."),
                 status: StatusCode::InternalServerError,
-                error_message: "There was a problem with the database.",
             );
         }
 
-        return new JsonResponse(status:StatusCode::OK);
+        return new Response(status: StatusCode::NoContent);
     }
 
     #[Route(Method::GET, '~api/hydro2/identity/permissions')]
     public function GetPermissions(): Response
     {
-        
         // if current user doesn't have permission , return 404
         $requestUser = $this->_identityService->GetUserFromRequestOrVisitor($this->request);
         if (!(
@@ -391,24 +252,7 @@ class UserRoleController extends BaseController
         }
 
         $permissions = $this->_identityService->GetAvailablePermissions();
-        $permissionResults = [];
 
-        foreach ($permissions as $permission) {
-            $permissionResults[] = [
-                'vendor' => $permission->Vendor,
-                'package' => $permission->Package,
-                'key' => $permission->Key,
-                'fullkey' => $permission->FullKey,
-                'name' => $permission->Name,
-                'description' => $permission->Description,
-                'requires' => $permission->Requires,
-            ];
-        }
-
-        return new JsonResponse(
-            data:[
-                'permissions' => $permissionResults,
-            ],
-        );
+        return new JsonResponse(array_values($permissions));
     }
 }

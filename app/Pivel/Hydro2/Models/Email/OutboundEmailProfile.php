@@ -2,6 +2,7 @@
 
 namespace Pivel\Hydro2\Models\Email;
 
+use JsonSerializable;
 use Pivel\Hydro2\Attributes\Entity\Entity;
 use Pivel\Hydro2\Attributes\Entity\EntityField;
 use Pivel\Hydro2\Attributes\Entity\EntityPrimaryKey;
@@ -12,7 +13,7 @@ use Pivel\Hydro2\Extensions\Database\Where;
 use Pivel\Hydro2\Models\Database\BaseObject;
 
 #[Entity('hydro2_outbound_email_profiles')]
-class OutboundEmailProfile
+class OutboundEmailProfile implements JsonSerializable
 {
     #[EntityField('id', AutoIncrement: true)]
     #[EntityPrimaryKey]
@@ -71,6 +72,22 @@ class OutboundEmailProfile
         $this->Host = $host;
         $this->Port = $port;
         $this->Secure = $secure;
+    }
+
+    public function jsonSerialize(): mixed
+    {
+        return [
+            'key' => $this->Key,
+            'label' => $this->Label,
+            'type' => $this->Type,
+            'sender' => $this->GetSender(),
+            'require_auth' => $this->RequireAuth,
+            'username' => $this->Username,
+            // don't provide password
+            'host' => $this->Host,
+            'port' => $this->Port,
+            'secure' => $this->Secure,
+        ];
     }
 
     public function GetSender() : EmailAddress {

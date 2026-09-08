@@ -1,15 +1,380 @@
 {#parent}
     {#arg Content}
         <h2>Outbound Email Profiles</h2>
-        {#view Pivel\Hydro2\Views\Components\SortableTable(Id:"email_profiles_table")}
+        {#view Pivel\Hydro2\Views\Components\RichTable\RichTable(Id:"email_profiles_table",IsSearchEnabled:true,IsCreateEnabled:true,IsEditEnabled:true,IsDetailEnabled:true,IsDeleteEnabled:true)}
             {#arg Headers[]}<th class="sortable" data-property="key">Key</th>{#}
             {#arg Headers[]}<th class="sortable" data-property="label">Name</th>{#}
             {#arg Headers[]}<th class="sortable" data-property="type">Type</th>{#}
-            {#arg Headers[]}<th class="sortable" data-property="sender">Sender Name</th>{#}
+            {#arg Headers[]}<th class="sortable" data-property="sender">Sender</th>{#}
             {#arg Headers[]}<th class="sortable" data-property="host">Host</th>{#}
+
+            {#arg DetailOverlay}
+                <h3>Email Profile Details</h3>
+                <dl class="inline">
+                    <dt>Key</dt><dd id="email_profile_detail_key"></dd>
+                    <dt>Name</dt><dd id="email_profile_detail_label"></dd>
+                    <dt>Type</dt><dd id="email_profile_detail_type"></dd>
+                    <dt>Sender</dt><dd id="email_profile_detail_sender"></dd>
+                    <dt>Require Auth?</dt><dd id="email_profile_detail_require_auth"></dd>
+                    <dt>Username</dt><dd id="email_profile_detail_username"></dd>
+                    <dt>Host</dt><dd id="email_profile_detail_host"></dd>
+                    <dt>SSL/TLS</dt><dd id="email_profile_detail_secure"></dd>
+                </dl>
+                <button type="button" class="close-overlay" title="Close">Close</button>
+            {#}
+
+            {#arg CreateOverlay}
+                <h3>New Email Profile</h3>
+                {#view Pivel\Hydro2\Views\Components\Form\Form("email_profile_create_form")}
+                    {#arg Fields[]}
+                        {#view Pivel\Hydro2\Views\Components\Form\LabelledFormField(
+                            Name:"key", Type:"text", IdPrefix:"email_profile_create_form", Label:"Profile Key")#}
+                    {#}
+                    {#arg Fields[]}
+                        {#view Pivel\Hydro2\Views\Components\Form\LabelledFormField(
+                            Name:"label", Type:"text", IdPrefix:"email_profile_create_form", Label:"Profile Name", Value:"New Profile")#}
+                    {#}
+                    {#arg Fields[]}
+                        {#view Pivel\Hydro2\Views\Components\Form\LabelledFormField(
+                            Name:"type", Type:"text", IdPrefix:"email_profile_create_form", Label:"Type", Value:"smtp")#}
+                    {#}
+                    {#arg Fields[]}
+                        {#view Pivel\Hydro2\Views\Components\Form\LabelledFormField(
+                            Name:"sender_address", Type:"text", IdPrefix:"email_profile_create_form", Label:"Sender Address")#}
+                    {#}
+                    {#arg Fields[]}
+                        {#view Pivel\Hydro2\Views\Components\Form\LabelledFormField(
+                            Name:"sender_name", Type:"text", IdPrefix:"email_profile_create_form", Label:"Sender Name")#}
+                    {#}
+                    {#arg Fields[]}
+                        {#view Pivel\Hydro2\Views\Components\Form\LabelledFormField(
+                            Name:"require_auth", Type:"checkbox", IdPrefix:"email_profile_create_form", Label:"Require Auth?")#}
+                    {#}
+                    {#arg Fields[]}
+                        {#view Pivel\Hydro2\Views\Components\Form\LabelledFormField(
+                            Name:"username", Type:"text", IdPrefix:"email_profile_create_form", Label:"Username")#}
+                    {#}
+                    {#arg Fields[]}
+                        {#view Pivel\Hydro2\Views\Components\Form\LabelledFormField(
+                            Name:"password", Type:"text", IdPrefix:"email_profile_create_form", Label:"Password")#}
+                    {#}
+                    {#arg Fields[]}
+                        {#view Pivel\Hydro2\Views\Components\Form\LabelledFormField(
+                            Name:"host", Type:"text", IdPrefix:"email_profile_create_form", Label:"Host")#}
+                    {#}
+                    {#arg Fields[]}
+                        {#view Pivel\Hydro2\Views\Components\Form\LabelledFormField(
+                            Name:"port", Type:"number", IdPrefix:"email_profile_create_form", Label:"Port")#}
+                    {#}
+                    {#arg Fields[]}
+                        {#view Pivel\Hydro2\Views\Components\Form\LabelledFormField(
+                            Name:"secure", Type:"text", IdPrefix:"email_profile_create_form", Label:"SSL/TLS")#}
+                    {#}
+                    {#arg Fields[]}
+                        {#view Pivel\Hydro2\Views\Components\Form\FormSubmitField(IdPrefix:"email_profile_create_form", Content:"Create")#}
+                    {#}
+                {#}
+                <button type="button" class="close-overlay" title="Cancel">Cancel</button>
+            {#}
+            {#arg EditOverlay}
+                <h3>Editing Email Profile</h3>
+                {#view Pivel\Hydro2\Views\Components\Form\Form("email_profile_edit_form")}
+                    {#arg Fields[]}
+                        {#view Pivel\Hydro2\Views\Components\Form\LabelledFormField(
+                            Name:"key", Type:"hidden", IdPrefix:"email_profile_edit_form")#}
+                    {#}
+                    {#arg Fields[]}
+                        {#view Pivel\Hydro2\Views\Components\Form\LabelledFormField(
+                            Name:"label", Type:"text", IdPrefix:"email_profile_edit_form", Label:"Profile Name", Value:"New Profile")#}
+                    {#}
+                    {#arg Fields[]}
+                        {#view Pivel\Hydro2\Views\Components\Form\LabelledFormField(
+                            Name:"type", Type:"text", IdPrefix:"email_profile_edit_form", Label:"Type", Value:"smtp")#}
+                    {#}
+                    {#arg Fields[]}
+                        {#view Pivel\Hydro2\Views\Components\Form\LabelledFormField(
+                            Name:"sender_address", Type:"text", IdPrefix:"email_profile_edit_form", Label:"Sender Address")#}
+                    {#}
+                    {#arg Fields[]}
+                        {#view Pivel\Hydro2\Views\Components\Form\LabelledFormField(
+                            Name:"sender_name", Type:"text", IdPrefix:"email_profile_edit_form", Label:"Sender Name")#}
+                    {#}
+                    {#arg Fields[]}
+                        {#view Pivel\Hydro2\Views\Components\Form\LabelledFormField(
+                            Name:"require_auth", Type:"checkbox", IdPrefix:"email_profile_edit_form", Label:"Require Auth?")#}
+                    {#}
+                    {#arg Fields[]}
+                        {#view Pivel\Hydro2\Views\Components\Form\LabelledFormField(
+                            Name:"username", Type:"text", IdPrefix:"email_profile_edit_form", Label:"Username")#}
+                    {#}
+                    {#arg Fields[]}
+                        {#view Pivel\Hydro2\Views\Components\Form\LabelledFormField(
+                            Name:"password", Type:"text", IdPrefix:"email_profile_edit_form", Label:"Password", Placeholder:"Leave unchanged")#}
+                    {#}
+                    {#arg Fields[]}
+                        {#view Pivel\Hydro2\Views\Components\Form\LabelledFormField(
+                            Name:"host", Type:"text", IdPrefix:"email_profile_edit_form", Label:"Host")#}
+                    {#}
+                    {#arg Fields[]}
+                        {#view Pivel\Hydro2\Views\Components\Form\LabelledFormField(
+                            Name:"port", Type:"number", IdPrefix:"email_profile_edit_form", Label:"Port")#}
+                    {#}
+                    {#arg Fields[]}
+                        {#view Pivel\Hydro2\Views\Components\Form\LabelledFormField(
+                            Name:"secure", Type:"text", IdPrefix:"email_profile_edit_form", Label:"SSL/TLS")#}
+                    {#}
+                    {#arg Fields[]}
+                        {#view Pivel\Hydro2\Views\Components\Form\FormSubmitField(IdPrefix:"email_profile_edit_form", Content:"Save Changes")#}
+                    {#}
+                {#}
+                <button type="button" class="close-overlay" title="Cancel">Cancel</button>
+            {#}
         {#}
         <script>
-            var email_profiles_table = new SortableTable("#email_profiles_table", "/api/hydro2/email/outboundprofiles", "outboundemailprofiles");
+            var email_profiles_table_renderer = function(table) {
+                table._nextRowId = 0;
+                // if no data, display placeholder
+                if (table._data.length == 0) {
+                    if (table._hasContextMenu) {
+                        table._table.Nodes("tbody").HTML("<tr><td class=\"placeholder\" colspan=\"20\">No data</td><td></td></tr>");
+                    } else {
+                        table._table.Nodes("tbody").HTML("<tr><td class=\"placeholder\" colspan=\"20\">No data</td></tr>");   
+                    }
+                    return;
+                }
+                var tbodyHtml = "";
+                // for each row in this._data:
+                for (var row of table._data) {
+                    // add <tr>
+                    if (table._hasContextMenu) {
+                        tbodyHtml += "<tr data-row=\"" + table._nextRowId + "\">";
+                    } else {
+                        tbodyHtml += "<tr>";
+                    }
+                    // for each property in this._columns:
+                    for (var property of table._columns) {
+                        // add <td>row[property]</td> to tbodyHtml
+                        if (property == 'sender') {
+                            var value = row['sender']['Name'] + " <" + row['sender']['Address'] + ">";
+                            value = H.HtmlEncode(value);
+                        } else {
+                            value = row[property];
+                            if (value === true) {
+                                value = "Yes";
+                            } else if (value === false) {
+                                value = "No";
+                            } else if (value === null) {
+                                value = "N/A";
+                            }
+                            value = H.HtmlEncode(value);
+                        }
+                        tbodyHtml += "<td>" + value + "</td>";
+                    }
+                    if (table._hasContextMenu) {
+                        tbodyHtml += "<td><button class=\"rich-table-context-btn\" title=\"More...\" data-row=\"" + table._nextRowId + "\">...</button></td>";
+                        table._nextRowId++;
+                    }
+                    // add </tr>
+                    tbodyHtml += "</tr>";
+                }
+                table._e.Nodes("tbody").HTML(tbodyHtml);
+
+                if (table._hasContextMenu) {
+                    // attach event handlers to buttons
+                    table._contextButtons = table._table.Nodes(".rich-table-context-btn");
+                    table._contextButtons.AddEventHandler("click", table._contextMenuClick.bind(table));
+                    // attach event handlers to rows
+                    table._table.Nodes("tbody > tr").AddEventHandler("contextmenu", table._contextMenuClick.bind(table));
+                }
+            };
+
+            var email_profiles_table = new RichTable("#email_profiles_table", "/api/hydro2/email/outboundprofiles", email_profiles_table_renderer, id_key="key");
+            email_profiles_table._showDetailHandler = emailProfilesShowDetailCallback;
+            email_profiles_table._showEditHandler = emailProfilesShowEditCallback;
+            email_profiles_table.AddContextMenuOption("Test", onEmailProfileTest);
+
+            var email_profiles_create_key =             new FormField("#email_profile_create_form_key");
+            var email_profiles_create_label =           new FormField("#email_profile_create_form_label");
+            var email_profiles_create_type =            new FormField("#email_profile_create_form_type");
+            var email_profiles_create_sender_address =  new FormField("#email_profile_create_form_sender_address");
+            var email_profiles_create_sender_name =     new FormField("#email_profile_create_form_sender_name");
+            var email_profiles_create_require_auth =    new FormField("#email_profile_create_form_require_auth");
+            var email_profiles_create_username =        new FormField("#email_profile_create_form_username");
+            var email_profiles_create_password =        new FormField("#email_profile_create_form_password");
+            var email_profiles_create_host =            new FormField("#email_profile_create_form_host");
+            var email_profiles_create_port =            new FormField("#email_profile_create_form_port");
+            var email_profiles_create_secure =          new FormField("#email_profile_create_form_secure");
+
+            var email_profiles_edit_key =             new FormField("#email_profile_edit_form_key");
+            var email_profiles_edit_label =           new FormField("#email_profile_edit_form_label");
+            var email_profiles_edit_type =            new FormField("#email_profile_edit_form_type");
+            var email_profiles_edit_sender_address =  new FormField("#email_profile_edit_form_sender_address");
+            var email_profiles_edit_sender_name =     new FormField("#email_profile_edit_form_sender_name");
+            var email_profiles_edit_require_auth =    new FormField("#email_profile_edit_form_require_auth");
+            var email_profiles_edit_username =        new FormField("#email_profile_edit_form_username");
+            var email_profiles_edit_password =        new FormField("#email_profile_edit_form_password");
+            var email_profiles_edit_host =            new FormField("#email_profile_edit_form_host");
+            var email_profiles_edit_port =            new FormField("#email_profile_edit_form_port");
+            var email_profiles_edit_secure =          new FormField("#email_profile_edit_form_secure");
+
+            H.Nodes("#email_profile_create_form").AddEventHandler("submit", onEmailProfileCreateFormSubmit);
+            H.Nodes("#email_profile_edit_form").AddEventHandler("submit", onEmailProfileEditFormSubmit);
+
+            function onEmailProfileTest(data) {
+                email_profiles_table.ShowToast("Sending test message...", false, "default");
+                var request = new H.AjaxRequest("POST", "/api/hydro2/email/outboundprofiles/" + data["key"] + "/test");
+                request.Send(emailProfileTestCallback);
+            }
+
+            function emailProfileTestCallback(response) {
+                if (response.Status == H.StatusCode.NoContent) {
+                    email_profiles_table.ShowToast("Test email sent!", false, "success");
+                    return;
+                }
+
+                if (response.Status == H.StatusCode.InternalServerError) {
+                    email_profiles_table.ShowToast("There was a problem with the server.", false, "error");
+                } else if (response.Status == H.StatusCode.BadRequest) {
+                    errMessage = "";
+                    if (response.IsErrorResponse) {
+                        errMessage = response.ResponseObject.Detail;
+                    } else if (Array.isArray(response.ResponseObject)) {
+                        errMessage = response.ResponseObject[0]['detail'];
+                    }
+                    email_profiles_table.ShowToast("Error trying to send: " + errMessage, false, "error");
+                } else {
+                    email_profiles_table.ShowToast("There was an unknown error.", false, "error");
+                }
+                console.warn(response);
+            }
+
+            function emailProfilesShowDetailCallback(data) {
+                H.Nodes("#email_profile_detail_key").Text(data["key"]);
+                H.Nodes("#email_profile_detail_label").Text(data["label"]);
+                H.Nodes("#email_profile_detail_type").Text(data["type"]);
+                H.Nodes("#email_profile_detail_sender").Text(data['sender']['Name'] + " <" + data['sender']['Address'] + ">");
+                H.Nodes("#email_profile_detail_require_auth").Text(data["require_auth"] ? "Yes" : "No");
+                H.Nodes("#email_profile_detail_username").Text(data["username"]);
+                H.Nodes("#email_profile_detail_host").Text(data['host'] + ":" + data['port']);
+                H.Nodes("#email_profile_detail_secure").Text(data['secure']);
+            }
+
+            function emailProfilesShowEditCallback(data) {
+                email_profiles_edit_key.input.Value(data["key"]);
+                email_profiles_edit_label.input.Value(data["label"]);
+                email_profiles_edit_type.input.Value(data["type"]);
+                email_profiles_edit_sender_address.input.Value(data["sender"]['Address']);
+                email_profiles_edit_sender_name.input.Value(data["sender"]['Name']);
+                email_profiles_edit_require_auth.input.Value(data["require_auth"]);
+                email_profiles_edit_username.input.Value(data["username"]);
+                email_profiles_edit_password.input.Value('');
+                email_profiles_edit_host.input.Value(data["host"]);
+                email_profiles_edit_port.input.Value(data["port"]);
+                email_profiles_edit_secure.input.Value(data["secure"]);
+            }
+
+            function onEmailProfileCreateFormSubmit(event) {
+                event.preventDefault();
+                SubmitEmailProfileCreateForm();
+                return false;
+            }
+
+            function onEmailProfileEditFormSubmit(event) {
+                event.preventDefault();
+                SubmitEmailProfileEditForm();
+                return false;
+            }
+
+            function SubmitEmailProfileCreateForm() {
+                // disable submit button and change contents to spinner
+                H.Nodes("#email_profile_create_form_submit").Disable();
+                var request = new H.AjaxRequest("POST", "/api/hydro2/email/outboundprofiles");
+                request.SetJsonData({
+                    "key": email_profiles_create_key.input.Value(),
+                    "label": email_profiles_create_label.input.Value(),
+                    "type": email_profiles_create_type.input.Value(),
+                    "sender_address": email_profiles_create_sender_address.input.Value(),
+                    "sender_name": email_profiles_create_sender_name.input.Value(),
+                    "require_auth": email_profiles_create_require_auth.input.Value(),
+                    "username": email_profiles_create_username.input.Value(),
+                    "password": email_profiles_create_password.input.Value(),
+                    "host": email_profiles_create_host.input.Value(),
+                    "port": email_profiles_create_port.input.Value(),
+                    "secure": email_profiles_create_secure.input.Value(),
+                });
+                request.Send(function(r){this._submitEmailProfileCallback(r,"Outbound email profile created successfully!");});
+            }
+
+            function SubmitEmailProfileEditForm() {
+                H.Nodes("#email_profile_edit_form_submit").Disable();
+                var request = new H.AjaxRequest("POST", "/api/hydro2/email/outboundprofiles/" + email_profiles_edit_key.input.Value());
+                request.SetJsonData({
+                    "key": email_profiles_edit_key.input.Value(),
+                    "label": email_profiles_edit_label.input.Value(),
+                    "type": email_profiles_edit_type.input.Value(),
+                    "sender_address": email_profiles_edit_sender_address.input.Value(),
+                    "sender_name": email_profiles_edit_sender_name.input.Value(),
+                    "require_auth": email_profiles_edit_require_auth.input.Value(),
+                    "username": email_profiles_edit_username.input.Value(),
+                    "password": email_profiles_edit_password.input.Value() != "" ? email_profiles_edit_password.input.Value() : null,
+                    "host": email_profiles_edit_host.input.Value(),
+                    "port": email_profiles_edit_port.input.Value(),
+                    "secure": email_profiles_edit_secure.input.Value(),
+                });
+                request.Send(function(r){this._submitEmailProfileCallback(r,"Changes saved!");});
+            }
+
+            function _submitEmailProfileCallback(response, successMessage) {
+                if (response.Status == H.StatusCode.Created || response.Status == H.StatusCode.NoContent) {
+                    // display toast (success)
+                    email_profiles_table.ShowToast(successMessage, false, "success");
+                    // trigger table refresh
+                    email_profiles_table.Load();
+                    // hide overlay
+                    email_profiles_table.HideOverlays();
+                    // clear forms
+                    email_profiles_create_key.input.Value("")  ;      
+                    email_profiles_create_label.input.Value("New Profile");
+                    email_profiles_create_type.input.Value("smtp");
+                    email_profiles_create_sender_address.input.Value("");
+                    email_profiles_create_sender_name.input.Value("");
+                    email_profiles_create_require_auth.input.Value(false);
+                    email_profiles_create_username.input.Value("");
+                    email_profiles_create_password.input.Value("");
+                    email_profiles_create_host.input.Value("");
+                    email_profiles_create_port.input.Value("");
+                    email_profiles_create_secure.input.Value("");
+
+                    email_profiles_edit_key.input.Value("");
+                    email_profiles_edit_label.input.Value("");
+                    email_profiles_edit_type.input.Value("");
+                    email_profiles_edit_sender_address.input.Value("");
+                    email_profiles_edit_sender_name.input.Value("");
+                    email_profiles_edit_require_auth.input.Value(false);
+                    email_profiles_edit_username.input.Value("");
+                    email_profiles_edit_password.input.Value("");
+                    email_profiles_edit_host.input.Value("");
+                    email_profiles_edit_port.input.Value("");
+                    email_profiles_edit_secure.input.Value("");
+
+                    H.Nodes("#email_profile_create_form_submit").Enable();
+                    H.Nodes("#email_profile_edit_form_submit").Enable();
+                    return;
+                }
+
+                if (response.Status == H.StatusCode.InternalServerError) {
+                    email_profiles_table.ShowToast("There was a problem with the server.", false, "error");
+                } else if (response.Status == H.StatusCode.NotFound) {
+                    email_profiles_table.ShowToast("You don't have permission to do this.", false, "error");
+                } else {
+                    console.log(response);
+                    email_profiles_table.ShowToast("There was an unknown error.", false, "error");
+                }
+                
+                //  restore submit button
+                H.Nodes("#email_profile_create_form_submit").Enable();
+                    H.Nodes("#email_profile_edit_form_submit").Enable();
+            }
         </script>
     {#}
 {#}

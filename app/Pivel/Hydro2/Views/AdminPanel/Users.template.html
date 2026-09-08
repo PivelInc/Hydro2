@@ -57,7 +57,7 @@
                 {#view Pivel\Hydro2\Views\Components\Form\Form("user_edit_form")}
                     {#arg Fields[]}
                         {#view Pivel\Hydro2\Views\Components\Form\FormField(
-                            Name:"random_id", Type:"hidden", IdPrefix:"user_edit_form")#}
+                            Name:"uuid", Type:"hidden", IdPrefix:"user_edit_form")#}
                     {#}
                     {#arg Fields[]}
                         {#view Pivel\Hydro2\Views\Components\Form\LabelledFormField(
@@ -113,7 +113,7 @@
                                 var value = "Unassigned";
                             }
                         } else if (property == 'created') {
-                            var value = new Date(""+row['created']['date']+row['created']['timezone']).toLocaleString([],{"dateStyle":"long","timeStyle":"short","hour12":false});
+                            var value = new Date(row['created']).toLocaleString([],{"dateStyle":"long","timeStyle":"short","hour12":false});
                         } else {
                             var value = row[property];
                         }
@@ -147,7 +147,7 @@
                 }
             }
 
-            var users_table = new RichTable("#users_table", "/api/hydro2/identity/users", "users", users_table_renderer, id_key="random_id");
+            var users_table = new RichTable("#users_table", "/api/hydro2/identity/users", users_table_renderer, id_key="uuid");
             users_table._showDetailHandler = usersShowDetailCallback;
             users_table._showEditHandler = usersShowEditCallback;
             users_table.AddContextMenuOption("Reset password", onUserResetPassword);
@@ -161,7 +161,7 @@
             var users_create_role = new RichSelect("#user_create_form_role");
 
             var users_edit_name = new FormField("#user_edit_form_name");
-            var users_edit_random_id = new FormField("#user_edit_form_random_id");
+            var users_edit_uuid = new FormField("#user_edit_form_uuid");
             var users_edit_email = new FormField("#user_edit_form_email");
             var users_edit_enabled = new FormField("#user_edit_form_enabled");
             var users_edit_role = new RichSelect("#user_edit_form_role");
@@ -174,7 +174,7 @@
             function onUserResetPassword(data) {
                 // show spinner
                 users_table._showSpinner();
-                var request = new H.AjaxRequest("POST", "/api/hydro2/identity/users/" + data["random_id"] + "/sendpasswordreset");
+                var request = new H.AjaxRequest("POST", "/api/hydro2/identity/users/" + data["uuid"] + "/sendpasswordreset");
                 request.Send(userResetPasswordCallback);
             }
 
@@ -185,7 +185,7 @@
                     return;
                 }
                 users_table._showSpinner();
-                var request = new H.AjaxRequest("POST", "/api/hydro2/identity/users/" + data["random_id"]);
+                var request = new H.AjaxRequest("POST", "/api/hydro2/identity/users/" + data["uuid"]);
                 request.SetJsonData({
                     "needs_review": false,
                 });
@@ -194,7 +194,7 @@
 
             function onUserUnlock(data) {
                 users_table._showSpinner();
-                var request = new H.AjaxRequest("POST", "/api/hydro2/identity/users/" + data["random_id"]);
+                var request = new H.AjaxRequest("POST", "/api/hydro2/identity/users/" + data["uuid"]);
                 request.SetJsonData({
                     "reset_failed_login_attempts": true,
                     "reset_failed_2fa_attempts": true,
@@ -203,7 +203,7 @@
             }
 
             function userResetPasswordCallback(response) {
-                if (response.Status == H.StatusCode.OK) {
+                if (response.Status == H.StatusCode.NoContent) {
                     users_table.ShowToast("Password reset email sent!", false, "success");
                     users_table._hideSpinner();
                     return;
@@ -231,7 +231,7 @@
             function _fillUserRolesCallback(response) {
                 if (response.Status == H.StatusCode.OK) {
                     var options = [];
-                    for (const r of response.Data["user_roles"]) {
+                    for (const r of response.ResponseObject) {
                         user_avail_roles[r["id"]] = r;
                         options.push({
                             "value": r["id"],
@@ -276,7 +276,7 @@
             }
 
             function usersShowEditCallback(data) {
-                users_edit_random_id.input.Value(data["random_id"]);
+                users_edit_uuid.input.Value(data["uuid"]);
                 users_edit_name.input.Value(data["name"]);
                 users_edit_email.input.Value(data["email"]);
                 users_edit_enabled.input.Value(data["enabled"]);
@@ -311,7 +311,7 @@
 
             function SubmitUserEditForm() {
                 H.Nodes("#user_edit_form_submit").Disable();
-                var request = new H.AjaxRequest("POST", "/api/hydro2/identity/users/" + users_edit_random_id.input.Value());
+                var request = new H.AjaxRequest("POST", "/api/hydro2/identity/users/" + users_edit_uuid.input.Value());
                 request.SetJsonData({
                     "name": users_edit_name.input.Value(),
                     "email": users_edit_email.input.Value(),
@@ -322,7 +322,7 @@
             }
 
             function _submitUserCallback(response, successMessage) {
-                if (response.Status == H.StatusCode.OK) {
+                if (response.Status == H.StatusCode.Created || response.Status == H.StatusCode.NoContent) {
                     // display toast (success)
                     users_table.ShowToast(successMessage, false, "success");
                     // trigger table refresh
@@ -336,7 +336,7 @@
                     users_create_needs_review.input.Value(false);
                     users_create_role.Clear();
 
-                    users_edit_random_id.input.Value("");
+                    users_edit_uuid.input.Value("");
                     users_edit_name.input.Value("");
                     users_edit_email.input.Value("");
                     users_edit_enabled.input.Value(false);
@@ -350,14 +350,14 @@
                     users_table.ShowToast("There was a problem with the server.", false, "error");
                 } else if (response.Status == H.StatusCode.NotFound) {
                     users_table.ShowToast("You don't have permission to do this.", false, "error");
-                } else if (response.Data["validation_errors"][0]["name"] == "email") {
+                /*} else if (response.Data["validation_errors"][0]["name"] == "email") {
                     users_create_email.SetValidation(false, response.Data["validation_errors"][0]["message"]);
                     users_edit_email.SetValidation(false, response.Data["validation_errors"][0]["message"]);
                     users_table.ShowToast(response.Data["validation_errors"][0]["message"], false, "error");
                 } else if (response.Data["validation_errors"][0]["name"] == "role_id") {
                     users_create_role.SetValidation(false, response.Data["validation_errors"][0]["message"]);
                     users_edit_role.SetValidation(false, response.Data["validation_errors"][0]["message"]);
-                    users_table.ShowToast(response.Data["validation_errors"][0]["message"], false, "error");
+                    users_table.ShowToast(response.Data["validation_errors"][0]["message"], false, "error");*/
                 } else {
                     console.log(response);
                     users_table.ShowToast("There was an unknown error.", false, "error");

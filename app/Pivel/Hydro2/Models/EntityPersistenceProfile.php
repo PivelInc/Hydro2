@@ -2,6 +2,7 @@
 
 namespace Pivel\Hydro2\Models;
 
+use JsonSerializable;
 use Pivel\Hydro2\Attributes\Entity\Entity;
 use Pivel\Hydro2\Attributes\Entity\EntityField;
 use Pivel\Hydro2\Attributes\Entity\EntityPrimaryKey;
@@ -11,7 +12,7 @@ use Pivel\Hydro2\Services\Entity\SqlitePersistenceProvider;
 use TypeError;
 
 #[Entity(CollectionName: 'profiles', PersistenceProfile: 'persistence_profile_store')]
-class EntityPersistenceProfile
+class EntityPersistenceProfile implements JsonSerializable
 {
     #[EntityField()]
     #[EntityPrimaryKey]
@@ -28,14 +29,33 @@ class EntityPersistenceProfile
     #[EntityField(IsNullable: true)]
     private ?string $databaseSchema;
 
-    public function __construct(string $key = 'primary')
+    public function __construct(
+        string $key = 'primary',
+        string $hostOrPath = '',
+        string $persistenceProviderClass = SqlitePersistenceProvider::class,
+        ?string $username = null,
+        ?string $password = null,
+        ?string $databaseSchema = null,
+)
     {
         $this->key = $key;
-        $this->persistenceProviderClass = SqlitePersistenceProvider::class;
-        $this->hostOrPath = Hydro2::$Current->MainAppDir . DIRECTORY_SEPARATOR . 'primary.sqlite3';
-        $this->username = null;
-        $this->password = null;
-        $this->databaseSchema = null;
+        $this->persistenceProviderClass = $persistenceProviderClass;
+        $this->hostOrPath = $hostOrPath;
+        $this->username = $username;
+        $this->password = $password;
+        $this->databaseSchema = $databaseSchema;
+    }
+
+    public function jsonSerialize(): mixed
+    {
+        return [
+            'key' => $this->GetKey(),
+            'persistenceProviderClass' => (new $this->persistenceProviderClass($this))->GetFriendlyName(),
+            'hostOrPath' => $this->hostOrPath,
+            'username' => $this->username,
+            // Don't return the password.
+            'databaseSchema' => $this->databaseSchema,
+        ];
     }
 
     public function GetKey() : string { return $this->key; }

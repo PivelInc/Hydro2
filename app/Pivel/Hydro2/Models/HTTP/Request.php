@@ -19,6 +19,7 @@ class Request
      * the request body (if content-type=="application/json" and there is a valid json object in the request body)
      */
     public array $Args = [];
+    public array $Headers = [];
     public string $requestBody = '';
 
     public string $UserAgent = '';
@@ -27,11 +28,16 @@ class Request
     {
         if (substr($sapi_name, 0, 3) == 'cli' || empty($server['REMOTE_ADDR'])) {
             $this->isWeb = false;
+            $this->method = Method::CLI;
             
             global $argv;
             if (isset($argv)) {
-                foreach ($argv as $arg) {
-                    $e=explode("=", $arg, 2);
+                if (count($argv) >= 2) {
+                    // first argument is endpoint.
+                    $this->endpoint = trim($argv[1], " /\"'");
+                }
+                for ($i = 2; $i < count($argv); $i++) {
+                    $e=explode("=", $argv[$i], 2);
                     if(count($e)==2)
                         $this->Args[$e[0]] = $e[1];
 
@@ -39,10 +45,12 @@ class Request
                         $this->Args[$e[0]] = true;
                 }
             }
+            return;
         } else {
             $this->isHttps = isset($server['HTTPS']) && $server['HTTPS'] != 'off';
             $this->hostname = $server["SERVER_NAME"];
             $this->clientAddress = $server['REMOTE_ADDR'];
+            $this->Headers = array_change_key_case(getallheaders(), CASE_LOWER);
         }
 
         $this->baseUrl = "http" . ($this->isHttps ? "s" : "") . "://" . $this->hostname;

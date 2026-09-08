@@ -8,16 +8,25 @@ use Pivel\Hydro2\Hydro2;
 
 class LoggerService implements ILoggerService
 {
+    private Hydro2 $_app;
+    
     private string $logFilePath;
     private int $logFileSizeLimit;
+    private string $fileNamePrefix;
 
     // fields: date time
-    public function __construct()
+    public function __construct(Hydro2 $app, string $file_name_prefix='hydro2')
     {
-        $this->logFilePath = Hydro2::$Current->MainAppDir;
-        $this->logFileSizeLimit = 1024*1024; // 1 MB
+        $this->_app = $app;
+        $this->logFilePath = $this->_app->MainAppDir . DIRECTORY_SEPARATOR . '.logs';
+        $this->logFileSizeLimit = 10*1024*1024; // 10 MB
+        $this->fileNamePrefix = $file_name_prefix;
 
-        if (!file_exists($this->logFilePath . DIRECTORY_SEPARATOR . 'hydro2.log')) {
+        if (!is_dir($this->logFilePath)) {
+            mkdir($this->logFilePath, recursive: true);
+        }
+
+        if (!file_exists($this->logFilePath . DIRECTORY_SEPARATOR . "{$this->fileNamePrefix}.log")) {
             $this->CreateLogFile();
         }
     }
@@ -27,13 +36,13 @@ class LoggerService implements ILoggerService
         $newLog = "#Version: 1.0\n";
         $newLog .= "#Software: Hydro2\n";
         $newLog .= "#Fields: date time type package message\n";
-        file_put_contents($this->logFilePath . DIRECTORY_SEPARATOR . 'hydro2.log', $newLog);
+        file_put_contents($this->logFilePath . DIRECTORY_SEPARATOR . "{$this->fileNamePrefix}.log", $newLog);
     }
 
     private function AppendLine(array $fields)
     {
         $line = implode("\t", $fields) . "\n";
-        file_put_contents($this->logFilePath . DIRECTORY_SEPARATOR . 'hydro2.log', $line, FILE_APPEND);
+        file_put_contents($this->logFilePath . DIRECTORY_SEPARATOR . "{$this->fileNamePrefix}.log", $line, FILE_APPEND);
     }
 
     private function Log(string $type, string $package, string $message) : void
@@ -47,8 +56,8 @@ class LoggerService implements ILoggerService
             $message,
         ]);
 
-        if (filesize($this->logFilePath . DIRECTORY_SEPARATOR . 'hydro2.log') >= $this->logFileSizeLimit) {
-            rename($this->logFilePath . DIRECTORY_SEPARATOR . 'hydro2.log', $this->logFilePath . DIRECTORY_SEPARATOR . "hydro2_{$now->getTimestamp()}.log");
+        if (filesize($this->logFilePath . DIRECTORY_SEPARATOR . "{$this->fileNamePrefix}.log") >= $this->logFileSizeLimit) {
+            rename($this->logFilePath . DIRECTORY_SEPARATOR . "{$this->fileNamePrefix}.log", $this->logFilePath . DIRECTORY_SEPARATOR . "{$this->fileNamePrefix}_{$now->getTimestamp()}.log");
             $this->CreateLogFile();
         }
     }

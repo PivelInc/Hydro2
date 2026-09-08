@@ -18,6 +18,7 @@ class MasterDetailView extends BaseView
         protected string $Title,
         protected array $NavTree,
         protected array $ContentPages,
+        protected bool $IsCollapsed = false,
     ) {
         $this->NavList = new MasterDetailNavList($NavTree);
     }

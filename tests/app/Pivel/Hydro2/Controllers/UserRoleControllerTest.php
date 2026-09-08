@@ -78,7 +78,7 @@ class UserRoleControllerTest extends TestCase
 
         $this->assertEquals(StatusCode::OK, $response->getStatus());
         $responseValue = json_decode($response->getContent(), true);
-        $this->assertIsArray($responseValue['data']['user_roles']);
+        $this->assertIsArray($responseValue);
     }
 
     public function testGetUserRolesShouldSetSortDirectionCorrectly()
@@ -106,7 +106,7 @@ class UserRoleControllerTest extends TestCase
 
         $this->assertEquals(StatusCode::OK, $response->getStatus());
         $responseValue = json_decode($response->getContent(), true);
-        $this->assertIsArray($responseValue['data']['user_roles']);
+        $this->assertIsArray($responseValue);
         $this->assertInstanceOf(Query::class, $mockIdentityService->lastRequestedQuery);
         $this->assertEquals(Order::Descending, $mockIdentityService->lastRequestedQuery->GetOrderTree()[0]['direction']);
     }
@@ -128,7 +128,7 @@ class UserRoleControllerTest extends TestCase
         $this->assertEquals(StatusCode::NotFound, $response->getStatus());
     }
 
-    public function testCreateUserRoleShouldReturnBadRequestIfInvalidPermission()
+    public function testCreateUserRoleShouldReturnUnprocessableEntityIfInvalidPermission()
     {
         $mockIdentityService = new MockIdentityService();
         $mockRequest = new Request([], post: ['permissions' => ['fakeValue']]);
@@ -148,9 +148,9 @@ class UserRoleControllerTest extends TestCase
 
         $response = $result->CreateUserRole();
 
-        $this->assertEquals(StatusCode::BadRequest, $response->getStatus());
+        $this->assertEquals(StatusCode::UnprocessableEntity, $response->getStatus());
         $responseValue = json_decode($response->getContent(), true);
-        $this->assertEquals("The permission 'fakeValue' doesn't exist.", $responseValue['data']['validation_errors'][0]['message']);
+        $this->assertEquals("userroles-0001", $responseValue[0]['code']);
     }
 
     public function testCreateUserRoleShouldReturnServerErrorIfCantCreate()
@@ -176,7 +176,7 @@ class UserRoleControllerTest extends TestCase
 
         $this->assertEquals(StatusCode::InternalServerError, $response->getStatus());
         $responseValue = json_decode($response->getContent(), true);
-        $this->assertEquals("There was a problem with the database.", $responseValue['message']);
+        $this->assertEquals("userroles-0002", $responseValue['code']);
     }
 
     public function testCreateUserRoleShouldReturnServerErrorIfCantGrantPermissions()
@@ -203,7 +203,7 @@ class UserRoleControllerTest extends TestCase
 
         $this->assertEquals(StatusCode::InternalServerError, $response->getStatus());
         $responseValue = json_decode($response->getContent(), true);
-        $this->assertEquals("The UserRole was generated, but there was a problem with the database while adding permissions.", $responseValue['message']);
+        $this->assertEquals("userroles-0003", $responseValue['code']);
     }
 
     public function testCreateUserRoleShouldReturnArray()
@@ -229,9 +229,9 @@ class UserRoleControllerTest extends TestCase
 
         $response = $result->CreateUserRole();
 
-        $this->assertEquals(StatusCode::OK, $response->getStatus());
+        $this->assertEquals(StatusCode::Created, $response->getStatus());
         $responseValue = json_decode($response->getContent(), true);
-        $this->assertIsArray($responseValue['data']['user_roles']);
+        $this->assertIsArray($responseValue);
     }
 
     // ==== GetUserRole ====
@@ -251,7 +251,7 @@ class UserRoleControllerTest extends TestCase
         $this->assertEquals(StatusCode::NotFound, $response->getStatus());
     }
     
-    public function testGetUserRoleShouldReturnBadRequestIfInvalidId()
+    public function testGetUserRoleShouldReturnNotFoundIfInvalidId()
     {
         $mockIdentityService = new MockIdentityService();
         $mockRequest = new Request([], post: ['id' => 1]);
@@ -271,9 +271,7 @@ class UserRoleControllerTest extends TestCase
 
         $response = $result->GetUserRole();
 
-        $this->assertEquals(StatusCode::BadRequest, $response->getStatus());
-        $responseValue = json_decode($response->getContent(), true);
-        $this->assertEquals("This user role doesn't exist.", $responseValue['data']['validation_errors'][0]['message']);
+        $this->assertEquals(StatusCode::NotFound, $response->getStatus());
     }
     
     public function testGetUserRoleShouldReturnArray()
@@ -298,7 +296,7 @@ class UserRoleControllerTest extends TestCase
 
         $this->assertEquals(StatusCode::OK, $response->getStatus());
         $responseValue = json_decode($response->getContent(), true);
-        $this->assertIsArray($responseValue['data']['user_roles']);
+        $this->assertIsArray($responseValue);
     }
 
     // ==== UpdateUserRole ====
@@ -318,7 +316,7 @@ class UserRoleControllerTest extends TestCase
         $this->assertEquals(StatusCode::NotFound, $response->getStatus());
     }
 
-    public function testUpdateUserRoleShouldReturnBadRequestIfInvalidRoleId()
+    public function testUpdateUserRoleShouldReturnNotFoundIfInvalidRoleId()
     {
         $mockIdentityService = new MockIdentityService();
         $mockRequest = new Request([], post: ['id' => 1]);
@@ -338,12 +336,10 @@ class UserRoleControllerTest extends TestCase
 
         $response = $result->UpdateUserRole();
 
-        $this->assertEquals(StatusCode::BadRequest, $response->getStatus());
-        $responseValue = json_decode($response->getContent(), true);
-        $this->assertEquals("This user role doesn't exist.", $responseValue['data']['validation_errors'][0]['message']);
+        $this->assertEquals(StatusCode::NotFound, $response->getStatus());
     }
 
-    public function testUpdateUserRoleShouldReturnBadRequestIfInvalidPermission()
+    public function testUpdateUserRoleShouldReturnUnprocessableEntityIfInvalidPermission()
     {
         $mockIdentityService = new MockIdentityService();
         $mockRequest = new Request([], post: ['id' => 1, 'permissions' => ['fakeValue']]);
@@ -363,9 +359,9 @@ class UserRoleControllerTest extends TestCase
 
         $response = $result->UpdateUserRole();
 
-        $this->assertEquals(StatusCode::BadRequest, $response->getStatus());
+        $this->assertEquals(StatusCode::UnprocessableEntity, $response->getStatus());
         $responseValue = json_decode($response->getContent(), true);
-        $this->assertEquals("The permission 'fakeValue' doesn't exist.", $responseValue['data']['validation_errors'][0]['message']);
+        $this->assertEquals("userroles-0001", $responseValue[0]["code"]);
     }
 
     public function testUpdateUserRoleShouldReturnServerErrorIfCantSave()
@@ -390,7 +386,7 @@ class UserRoleControllerTest extends TestCase
 
         $this->assertEquals(StatusCode::InternalServerError, $response->getStatus());
         $responseValue = json_decode($response->getContent(), true);
-        $this->assertEquals("There was a problem with the database.", $responseValue['message']);
+        $this->assertEquals("userroles-0004", $responseValue['code']);
     }
 
     public function testUpdateUserRoleShouldReturnServerErrorIfCantGrantPermissions()
@@ -418,7 +414,7 @@ class UserRoleControllerTest extends TestCase
 
         $this->assertEquals(StatusCode::InternalServerError, $response->getStatus());
         $responseValue = json_decode($response->getContent(), true);
-        $this->assertEquals("The UserRole was updated, but there was a problem with the database while adding permissions.", $responseValue['message']);
+        $this->assertEquals("userroles-0003", $responseValue["code"]);
     }
 
     public function testUpdateUserRoleShouldReturnServerErrorIfCantDenyPermissions()
@@ -445,10 +441,10 @@ class UserRoleControllerTest extends TestCase
 
         $this->assertEquals(StatusCode::InternalServerError, $response->getStatus());
         $responseValue = json_decode($response->getContent(), true);
-        $this->assertEquals("The UserRole was updated, but there was a problem with the database while removing permissions.", $responseValue['message']);
+        $this->assertEquals("userroles-0005", $responseValue['code']);
     }
 
-    public function testUpdateUserRoleShouldReturnOk()
+    public function testUpdateUserRoleShouldReturnNoContent()
     {
         $mockIdentityService = new MockIdentityService();
         $mockRequest = new Request([], post: ['id' => 1, 'permissions' => ['vendor/package/fakeValue']]);
@@ -471,7 +467,7 @@ class UserRoleControllerTest extends TestCase
 
         $response = $result->UpdateUserRole();
 
-        $this->assertEquals(StatusCode::OK, $response->getStatus());
+        $this->assertEquals(StatusCode::NoContent, $response->getStatus());
     }
 
     // ==== DeleteUserRole ====
@@ -491,7 +487,7 @@ class UserRoleControllerTest extends TestCase
         $this->assertEquals(StatusCode::NotFound, $response->getStatus());
     }
 
-    public function testDeleteUserRoleShouldReturnBadRequestIfInvalidRoleId()
+    public function testDeleteUserRoleShouldReturnNotFoundIfInvalidRoleId()
     {
         $mockIdentityService = new MockIdentityService();
         $mockRequest = new Request([], post: ['id' => 1]);
@@ -511,12 +507,10 @@ class UserRoleControllerTest extends TestCase
 
         $response = $result->DeleteUserRole();
 
-        $this->assertEquals(StatusCode::BadRequest, $response->getStatus());
-        $responseValue = json_decode($response->getContent(), true);
-        $this->assertEquals("This user role doesn't exist.", $responseValue['data']['validation_errors'][0]['message']);
+        $this->assertEquals(StatusCode::NotFound, $response->getStatus());
     }
 
-    public function testDeleteUserRoleShouldReturnBadRequestIfUsersExist()
+    public function testDeleteUserRoleShouldReturnConflictIfUsersExist()
     {
         $mockIdentityService = new MockIdentityService();
         $mockRequest = new Request([], post: ['id' => 1]);
@@ -539,9 +533,9 @@ class UserRoleControllerTest extends TestCase
 
         $response = $result->DeleteUserRole();
 
-        $this->assertEquals(StatusCode::BadRequest, $response->getStatus());
+        $this->assertEquals(StatusCode::Conflict, $response->getStatus());
         $responseValue = json_decode($response->getContent(), true);
-        $this->assertEquals("Cannot delete a role while there are users with this role.", $responseValue['data']['validation_errors'][0]['message']);
+        $this->assertEquals("userroles-0006", $responseValue["code"]);
     }
 
     public function testDeleteUserRoleShouldReturnServerErrorIfCantDelete()
@@ -566,10 +560,10 @@ class UserRoleControllerTest extends TestCase
 
         $this->assertEquals(StatusCode::InternalServerError, $response->getStatus());
         $responseValue = json_decode($response->getContent(), true);
-        $this->assertEquals("There was a problem with the database.", $responseValue['message']);
+        $this->assertEquals("userroles-0007", $responseValue['code']);
     }
 
-    public function testDeleteUserRoleShouldReturnStatusOk()
+    public function testDeleteUserRoleShouldReturnStatusNoContent()
     {
         $mockIdentityService = new MockIdentityService();
         $mockRequest = new Request([], post: ['id' => 1]);
@@ -590,7 +584,7 @@ class UserRoleControllerTest extends TestCase
 
         $response = $result->DeleteUserRole();
 
-        $this->assertEquals(StatusCode::OK, $response->getStatus());
+        $this->assertEquals(StatusCode::NoContent, $response->getStatus());
     }
 
     // ==== GetPermissions ====
@@ -635,7 +629,7 @@ class UserRoleControllerTest extends TestCase
 
         $this->assertEquals(StatusCode::OK, $response->getStatus());
         $responseValue = json_decode($response->getContent(), true);
-        $this->assertIsArray($responseValue['data']['permissions']);
-        $this->assertCount(1, $responseValue['data']['permissions']);
+        $this->assertIsArray($responseValue);
+        $this->assertCount(1, $responseValue);
     }
 }

@@ -4,6 +4,7 @@ namespace Pivel\Hydro2\Models\Identity;
 
 use DateTime;
 use DateTimeZone;
+use JsonSerializable;
 use Pivel\Hydro2\Attributes\Entity\Entity;
 use Pivel\Hydro2\Attributes\Entity\EntityField;
 use Pivel\Hydro2\Attributes\Entity\EntityPrimaryKey;
@@ -11,16 +12,15 @@ use Pivel\Hydro2\Attributes\Entity\ForeignEntityManyToOne;
 use Pivel\Hydro2\Attributes\Entity\ForeignEntityOneToMany;
 use Pivel\Hydro2\Extensions\Query;
 use Pivel\Hydro2\Models\Database\Order;
+use Pivel\Hydro2\Models\Uuid;
 use Pivel\Hydro2\Services\Entity\EntityCollection;
 
 #[Entity(CollectionName: 'hydro2_users')]
-class User
+class User implements JsonSerializable
 {
-    #[EntityField(FieldName: 'id', AutoIncrement: true)]
+    #[EntityField(FieldName: 'uuid')]
     #[EntityPrimaryKey]
-    public ?int $Id = null;
-    #[EntityField(FieldName: 'random_id')]
-    public ?string $RandomId = null;
+    public ?Uuid $Id = null;
     #[EntityField(FieldName: 'inserted')]
     public ?DateTime $InsertedTime = null;
     #[EntityField(FieldName: 'email')]
@@ -66,7 +66,7 @@ class User
     ) {
         $this->Email = $email;
         if ($this->Email !== '') {
-            $this->GenerateRandomId();
+            $this->Id = Uuid::GenerateV4();
             $this->InsertedTime = new DateTime(timezone: new DateTimeZone('UTC'));
         }
         $this->EmailVerified = false;
@@ -76,6 +76,22 @@ class User
         $this->FailedLoginAttempts = $failedLoginAttempts;
         $this->Failed2FAAttempts = $failed2FAAttempts;
         $this->role = $role;
+    }
+
+    public function jsonSerialize(): mixed
+    {
+        return [
+            'uuid' => $this->Id,
+            'created' => $this->InsertedTime->format("c"),
+            'email' => $this->Email,
+            'email_verified' => $this->EmailVerified,
+            'name' => $this->Name,
+            'needs_review' => $this->NeedsReview,
+            'enabled' => $this->Enabled,
+            'failed_login_attempts' => $this->FailedLoginAttempts,
+            'failed_2fa_attempts' => $this->Failed2FAAttempts,
+            'role' => $this->role,
+        ];
     }
 
     public function GetSessionCount(): int
@@ -114,11 +130,6 @@ class User
         $this->role = $role;
     }
 
-    private function GenerateRandomId(): void
-    {
-        $this->RandomId = md5(uniqid($this->Email, true));
-    }
-
     public function GetEmailVerificationToken(): string
     {
         return $this->EmailVerificationToken??$this->GenerateEmailVerificationToken();
@@ -131,10 +142,6 @@ class User
 
     public function ValidateEmailVerificationToken(string $token) : bool
     {
-        if ($this->EmailVerified) {
-            return false;
-        }
-        
         return $token === $this->EmailVerificationToken;
     }
     
@@ -163,7 +170,7 @@ class User
         // TODO add enforcement for minimum length, complexity, not matching previous x passwords.
         $now = new DateTime(timezone: new DateTimeZone('UTC'));
         $expiry = null;
-        if ($this->role->MaxPasswordAgeDays !== null) {
+        if ($this->role?->MaxPasswordAgeDays !== null) {
             $expiry = clone $now;
             $expiry->modify("+{$this->role->MaxPasswordAgeDays} days");
         }
@@ -198,11 +205,20 @@ class User
             return false;
         }
 
+        return true;
+    }
+
+    public function SetPasswordResetTokenAsUsed(string $token): void
+    {
+        /** @var PasswordResetToken[] */
+        $tokenObjs = $this->userPasswordResetTokens->Read((new Query())->Equal('reset_token', $token)->Limit(1));
+        if (count($tokenObjs) != 1) {
+            return;
+        }
+
         // update token since it is now used.
         $tokenObjs[0]->Used = true;
         $this->userPasswordResetTokens->Update($tokenObjs[0]);
-
-        return true;
     }
 
     public function CreateNewPasswordResetToken(): ?PasswordResetToken

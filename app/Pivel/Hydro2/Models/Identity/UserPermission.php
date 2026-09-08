@@ -2,6 +2,7 @@
 
 namespace Pivel\Hydro2\Models\Identity;
 
+use JsonSerializable;
 use Pivel\Hydro2\Attributes\Entity\Entity;
 use Pivel\Hydro2\Attributes\Entity\EntityField;
 use Pivel\Hydro2\Attributes\Entity\EntityPrimaryKey;
@@ -9,7 +10,7 @@ use Pivel\Hydro2\Attributes\Entity\ForeignEntityManyToOne;
 use Pivel\Hydro2\Models\Database\ReferenceBehaviour;
 
 #[Entity(CollectionName: 'hydro2_user_permissions')]
-class UserPermission
+class UserPermission implements JsonSerializable
 {
     #[EntityField(FieldName: 'id', AutoIncrement: true)]
     #[EntityPrimaryKey]
@@ -24,6 +25,13 @@ class UserPermission
     {
         $this->userRole = $userRole;
         $this->PermissionKey = $permissionKey;
+    }
+
+    public function jsonSerialize(): mixed
+    {
+        return [
+            'key' => $this->PermissionKey,
+        ];
     }
 
     public function GetUserRole(): UserRole

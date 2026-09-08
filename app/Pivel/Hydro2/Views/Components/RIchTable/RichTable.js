@@ -12,10 +12,11 @@ class RichTable extends SortableTable {
     _showEditHandler = null;
 
     _query;
-    constructor(selector, apiEndpoint, apiResponseKey, renderer=null, idKey="id") {
-        super(selector + ".rich-table", apiEndpoint, apiResponseKey, renderer);
+    constructor(selector, apiEndpoint, renderer=null, idKey="id") {
+        super(selector + ".rich-table", apiEndpoint, renderer);
 
         this._idKey = idKey;
+        this._searchForm = this._e.Nodes(selector + "_search_form");
         this._searchField = this._e.Nodes(selector + "_search_form_q");
         this._searchButton = this._e.Nodes(selector + "_search_form_submit");
         this._createButton = this._e.Nodes(selector + "_create");
@@ -28,7 +29,7 @@ class RichTable extends SortableTable {
         this._overlayCloseButtons = this._e.Nodes(".close-overlay");
 
         // add search event handler
-        this._searchButton.AddEventHandler("click", this._searchClick.bind(this));
+        this._searchForm.AddEventHandler("submit", this._searchClick.bind(this));
         // add create event handler
         this._createButton.AddEventHandler("click", this._createClick.bind(this));
         // add overlay close event handler(s)
@@ -49,7 +50,7 @@ class RichTable extends SortableTable {
     }
 
     AddContextMenuOption(content, callback) {
-        var key = "custom" + this._contextOptionHandlers.length;
+        var key = "custom" + Object.keys(this._contextOptionHandlers).length;
         var li = document.createElement("li");
         var btn = document.createElement("button");
         btn.className = "context-menu-item";
@@ -118,7 +119,7 @@ class RichTable extends SortableTable {
     }
 
     _dataDeletedCallback(response) {
-        if (response.Status == H.StatusCode.OK) {
+        if (response.Status == H.StatusCode.NoContent) {
             // display toast (success)
             this.ShowToast("Item deleted.", false, "success");
             // trigger table refresh. this will automatically hide the spinner.
@@ -133,8 +134,6 @@ class RichTable extends SortableTable {
             this.ShowToast("There was a problem with the server.", false, "error");
         } else if (response.Status == H.StatusCode.NotFound) {
             this.ShowToast("You don't have permission to delete this item.", false, "error");
-        } else if (response.Data["validation_errors"][0]["name"] == "id") {
-            this.ShowToast(response.Data["validation_errors"][0]["message"], false, "error");
         } else {
             console.error(response);
             this.ShowToast("There was an unknown error.", false, "error");

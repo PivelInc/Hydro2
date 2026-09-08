@@ -2,8 +2,8 @@
     "name":"Hydro2",
     "vendor":"Pivel",
     "description":"Hydro2 Core framework",
-    "version":[2, 2, 0, 1],
-    "release_date":"2023-09-25",
+    "version":[2, 3, 1, 0],
+    "release_date":"2026-09-08",
     "author": {
         "name":"Thomas Boland",
         "email":"thomas@tbcsvcs.ca",
@@ -14,8 +14,8 @@
         ".htaccess",
         "index.php",
         "robots.txt",
-        "assets/Pivel/Hydro2/hydro2-2.2.0.1.css",
-        "assets/Pivel/Hydro2/hydro2-2.2.0.1.js"
+        "assets/Pivel/Hydro2/hydro2-2.3.1.0.css",
+        "assets/Pivel/Hydro2/hydro2-2.3.1.0.js"
     ],
 
     "dependencies": [

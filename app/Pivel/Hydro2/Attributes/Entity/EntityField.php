@@ -16,7 +16,7 @@ class EntityField
      */
     public function __construct(
         public ?string $FieldName = null,
-        public ?Type $FieldType = null,
+        //public Type|string|null $FieldType = null,
         public bool $IsNullable = false,
         public bool $AutoIncrement = false,
     ) {

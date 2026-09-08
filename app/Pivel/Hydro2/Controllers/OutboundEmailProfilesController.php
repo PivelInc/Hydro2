@@ -12,10 +12,12 @@ use Pivel\Hydro2\Extensions\Query;
 use Pivel\Hydro2\Models\HTTP\Method;
 use Pivel\Hydro2\Extensions\Route;
 use Pivel\Hydro2\Extensions\RoutePrefix;
+use Pivel\Hydro2\Hydro2;
 use Pivel\Hydro2\Models\Database\Order;
 use Pivel\Hydro2\Models\Email\EmailAddress;
 use Pivel\Hydro2\Models\Email\EmailMessage;
 use Pivel\Hydro2\Models\Email\OutboundEmailProfile;
+use Pivel\Hydro2\Models\ErrorMessage;
 use Pivel\Hydro2\Models\HTTP\JsonResponse;
 use Pivel\Hydro2\Models\HTTP\Request;
 use Pivel\Hydro2\Models\HTTP\Response;
@@ -29,16 +31,19 @@ use Pivel\Hydro2\Views\EmailViews\TestEmailView;
 #[RoutePrefix('api/hydro2/email/outboundprofiles')]
 class OutboundEmailProfilesController extends BaseController
 {
+    protected Hydro2 $_app;
     protected IEntityService $_entityService;
     protected IdentityService $_identityService;
     protected EmailService $_emailService;
 
     public function __construct(
+        Hydro2 $app,
         IEntityService $entityService,
         IdentityService $identityService,
         EmailService $emailService,
         Request $request,
     ) {
+        $this->_app = $app;
         $this->_entityService = $entityService;
         $this->_identityService = $identityService;
         $this->_emailService = $emailService;
@@ -50,49 +55,21 @@ class OutboundEmailProfilesController extends BaseController
     {
         $requestUser = $this->_identityService->GetUserFromRequestOrVisitor($this->request);
         if (!$requestUser->GetUserRole()->HasPermission(Permissions::ManageOutboundEmailProfiles->value)) {
-            return new Response(
-                status: StatusCode::NotFound,
-            );
+            return new Response(status: StatusCode::NotFound);
+        }
+        
+        if (isset($this->request->Args['sort_by']) && $this->request->Args['sort_by'] == 'sender') {
+            $this->request->Args['sort_by'] = 'sender_address';
         }
 
-        $query = new Query();
-        $query->Limit($this->request->Args['limit'] ?? -1);
-        $query->Offset($this->request->Args['offset'] ?? 0);
-        
-        if (isset($this->request->Args['sort_by'])) {
-            if ($this->request->Args['sort_by'] == 'sender') {
-                $this->request->Args['sort_by'] = 'sender_address';
-            }
-            $dir = Order::tryFrom(strtoupper($this->request->Args['sort_dir']??'asc'))??Order::Ascending;
-            $query->OrderBy($this->request->Args['sort_by']??'key', $dir);
-        }
+        $query = Query::SortSearchPageQueryFromRequest($this->request, searchField:"label");
 
         $r = $this->_entityService->GetRepository(OutboundEmailProfile::class);
 
         /** @var OutboundEmailProfile[] */
         $profiles = $r->Read($query);
-        $serializedProfiles = [];
-        foreach ($profiles as $profile) {
-            $serializedProfiles[] = [
-                'key' => $profile->Key,
-                'label' => $profile->Label,
-                'type' => $profile->Type,
-                'sender' => $profile->GetSender()->__toString(),
-                'require_auth' => $profile->RequireAuth,
-                'username' => $profile->Username,
-                // don't provide password
-                'host' => $profile->Host,
-                'port' => $profile->Port,
-                'secure' => $profile->Secure,
-            ];
-        }
 
-        return new JsonResponse(
-            data: [
-                'outboundemailprofiles' => $serializedProfiles,
-            ],
-            status: StatusCode::OK,
-        );
+        return new JsonResponse($profiles);
     }
 
     #[Route(Method::GET, '~api/hydro2/email/outboundprofileproviders')]
@@ -100,17 +77,10 @@ class OutboundEmailProfilesController extends BaseController
     {
         $requestUser = $this->_identityService->GetUserFromRequestOrVisitor($this->request);
         if (!$requestUser->GetUserRole()->HasPermission(Permissions::ManageOutboundEmailProfiles->value)) {
-            return new Response(
-                status: StatusCode::NotFound,
-            );
+            return new Response(status: StatusCode::NotFound);
         }
 
-        return new JsonResponse(
-            data: [
-                'outboundemailproviders' => $this->_emailService->GetAvailableProviders(),
-            ],
-            status: StatusCode::OK,
-        );
+        return new JsonResponse($this->_emailService->GetAvailableProviders());
     }
 
     #[Route(Method::POST, '')]
@@ -118,24 +88,13 @@ class OutboundEmailProfilesController extends BaseController
     {
         $requestUser = $this->_identityService->GetUserFromRequestOrVisitor($this->request);
         if (!$requestUser->GetUserRole()->HasPermission(Permissions::ManageOutboundEmailProfiles->value)) {
-            return new Response(
-                status: StatusCode::NotFound,
-            );
+            return new Response(status: StatusCode::NotFound);
         }
 
         if (!isset($this->request->Args['key'])) {
             return new JsonResponse(
-                data: [
-                    'validation_errors' => [
-                        [
-                            'name' => 'key',
-                            'description' => 'Unique key for profile',
-                            'message' => 'A unique key for this outbound email profile is required.',
-                        ],
-                    ],
-                ],
-                status: StatusCode::BadRequest,
-                error_message: 'One or more arguments are missing.'
+                new ErrorMessage('emailprofiles-0001', 'Missing parameter \"key\"', 'A unique key for this outbound email profile is required.'),
+                StatusCode::BadRequest,
             );
         }
 
@@ -143,17 +102,8 @@ class OutboundEmailProfilesController extends BaseController
 
         if ($r->Count((new Query)->Equal('key', $this->request->Args['key'])) !== 0) {
             return new JsonResponse(
-                data: [
-                    'validation_errors' => [
-                        [
-                            'name' => 'key',
-                            'description' => 'Unique key for profile',
-                            'message' => 'An outbound email profile already exists with the provided key.',
-                        ],
-                    ],
-                ],
-                status: StatusCode::BadRequest,
-                error_message: 'One or more arguments are invalid.'
+                new ErrorMessage('emailprofiles-0002', 'Invalid parameter \"key\"', 'An outbound email profile already exists with the provided key.'),
+                StatusCode::BadRequest,
             );
         }
         
@@ -179,7 +129,7 @@ class OutboundEmailProfilesController extends BaseController
             username: $this->request->Args['username']??null,
             password: $this->request->Args['password']??null,
             host: $this->request->Args['host']??'localhost',
-            port: $this->request->Args['port']??465,
+            port:  intval($this->request->Args['port']??465),
             secure: $secure,
         );
 
@@ -187,12 +137,12 @@ class OutboundEmailProfilesController extends BaseController
 
         if (!$r->Update($profile)) {
             return new JsonResponse(
+                new ErrorMessage('emailprofiles-0003', 'Internal server error', 'There was a problem with the database.'),
                 status: StatusCode::InternalServerError,
-                error_message: "There was a problem with the database."
             );
         }
 
-        return new JsonResponse(status:StatusCode::OK);
+        return new Response(status: StatusCode::NoContent);
     }
 
     #[Route(Method::GET, '{key}')]
@@ -200,46 +150,18 @@ class OutboundEmailProfilesController extends BaseController
     {
         $requestUser = $this->_identityService->GetUserFromRequestOrVisitor($this->request);
         if (!$requestUser->GetUserRole()->HasPermission(Permissions::ManageOutboundEmailProfiles->value)) {
-            return new Response(
-                status: StatusCode::NotFound,
-            );
+            return new Response(status: StatusCode::NotFound);
         }
 
         $r = $this->_entityService->GetRepository(OutboundEmailProfile::class);
 
-        $profiles = $r->Read((new Query)->Equal('key', $this->request->Args['key']));
-        if (count($profiles) != 1) {
-            return new JsonResponse(
-                data: [
-                    'outboundemailprofiles' => [],
-                ],
-                status: StatusCode::OK,
-            );
+        $profiles = $r->Read((new Query)->Equal('key', $this->request->Args['key'])->Limit(1));
+
+        if (count($profiles) !== 1) {
+            return new Response(status: StatusCode::NotFound);
         }
 
-        $profile = $profiles[0];
-
-        $serializedProfiles = [
-            [
-                'key' => $profile->Key,
-                'label' => $profile->Label,
-                'type' => $profile->Type,
-                'sender' => $profile->GetSender()->__toString(),
-                'require_auth' => $profile->RequireAuth,
-                'username' => $profile->Username,
-                // don't provide password
-                'host' => $profile->Host,
-                'port' => $profile->Port,
-                'secure' => $profile->Secure,
-            ]
-        ];
-
-        return new JsonResponse(
-            data: [
-                'outboundemailprofiles' => $serializedProfiles,
-            ],
-            status: StatusCode::OK,
-        );
+        return new JsonResponse($profiles[0]);
     }
 
     #[Route(Method::POST, '{key}')]
@@ -247,9 +169,7 @@ class OutboundEmailProfilesController extends BaseController
     {
         $requestUser = $this->_identityService->GetUserFromRequestOrVisitor($this->request);
         if (!$requestUser->GetUserRole()->HasPermission(Permissions::ManageOutboundEmailProfiles->value)) {
-            return new Response(
-                status: StatusCode::NotFound,
-            );
+            return new Response(status: StatusCode::NotFound);
         }
 
         $r = $this->_entityService->GetRepository(OutboundEmailProfile::class);
@@ -287,12 +207,12 @@ class OutboundEmailProfilesController extends BaseController
 
         if (!$r->Update($profile)) {
             return new JsonResponse(
+                new ErrorMessage('emailprofiles-0004', 'Internal server error', 'There was a problem with the database.'),
                 status: StatusCode::InternalServerError,
-                error_message: "There was a problem with the database."
             );
         }
 
-        return new JsonResponse(status:StatusCode::OK);
+        return new JsonResponse(status: StatusCode::NoContent);
     }
 
     #[Route(Method::DELETE, '{key}')]
@@ -300,9 +220,7 @@ class OutboundEmailProfilesController extends BaseController
     {
         $requestUser = $this->_identityService->GetUserFromRequestOrVisitor($this->request);
         if (!$requestUser->GetUserRole()->HasPermission(Permissions::ManageOutboundEmailProfiles->value)) {
-            return new Response(
-                status: StatusCode::NotFound,
-            );
+            return new Response(status: StatusCode::NotFound);
         }
 
         $r = $this->_entityService->GetRepository(OutboundEmailProfile::class);
@@ -311,12 +229,12 @@ class OutboundEmailProfilesController extends BaseController
 
         if (count($profiles) == 1 && !$r->Delete($profiles[0])) {
             return new JsonResponse(
+                new ErrorMessage('emailprofiles-0005', 'Internal server error', 'There was a problem with the database.'),
                 status: StatusCode::InternalServerError,
-                error_message: "There was a problem with the database."
             );
         }
 
-        return new JsonResponse(status:StatusCode::OK);
+        return new JsonResponse(status:StatusCode::NoContent);
     }
 
     #[Route(Method::POST, '{key}/test')]
@@ -324,26 +242,10 @@ class OutboundEmailProfilesController extends BaseController
     {
         $requestUser = $this->_identityService->GetUserFromRequestOrVisitor($this->request);
         if (!$requestUser->GetUserRole()->HasPermission(Permissions::ManageOutboundEmailProfiles->value)) {
-            return new Response(
-                status: StatusCode::NotFound,
-            );
+            return new Response(status: StatusCode::NotFound);
         }
 
-        if (!isset($this->request->Args['to'])) {
-            return new JsonResponse(
-                data: [
-                    'validation_errors' => [
-                        [
-                            'name' => 'to',
-                            'description' => 'Destination address for test email to be sent to',
-                            'message' => 'A destination address was not provided.',
-                        ],
-                    ],
-                ],
-                status: StatusCode::BadRequest,
-                error_message: 'One or more arguments are missing.'
-            );
-        }
+        $destination = new EmailAddress($this->request->Args['to'] ?? $requestUser->Email);
 
         $r = $this->_entityService->GetRepository(OutboundEmailProfile::class);
 
@@ -351,17 +253,8 @@ class OutboundEmailProfilesController extends BaseController
 
         if (count($profiles) != 1) {
             return new JsonResponse(
-                data: [
-                    'validation_errors' => [
-                        [
-                            'name' => 'key',
-                            'description' => 'Unique key for profile',
-                            'message' => 'An outbound email profile with the specified key does not exist.',
-                        ],
-                    ],
-                ],
+                new ErrorMessage('emailprofiles-0007', 'Invalid parameter \"key\"', 'An outbound email profile with the specified key does not exist.'),
                 status: StatusCode::BadRequest,
-                error_message: 'One or more arguments are invalid.'
             );
         }
         $profile = $profiles[0];
@@ -370,104 +263,47 @@ class OutboundEmailProfilesController extends BaseController
 
         if ($provider === null) {
             return new JsonResponse(
-                data: [
-                    'outboundemailprofile_test_result' => false,
-                    'outboundemailprofile_test_errors' => [
-                        [
-                            'name' => 'type',
-                            'description' => 'The type of email server (currently, only SMTP is allowed)',
-                            'message' => 'No provider available to handle this outbound email profile\'s type',
-                        ],
-                    ],
-                ],
-                status: StatusCode::OK,
+                new ErrorMessage('emailprofiles-0008', 'Invalid parameter \"type\"', 'No provider available to handle this outbound email profile\'s type'),
+                status: StatusCode::BadRequest,
             );
         }
 
         $emailView = new TestEmailView($this->request->Args['key']);
-        $message = new EmailMessage($emailView, [new EmailAddress($this->request->Args['to'])]);
+        $message = new EmailMessage($emailView, $this->_app, [$destination]);
 
         $result = false;
         try {
             $result = $provider->SendEmail($message, true);
         } catch (EmailHostNotFoundException) {
-            $data = [
-                'outboundemailprofile_test_result' => false,
-                'outboundemailprofile_test_errors' => [
-                    [
-                        'name' => 'host',
-                        'description' => 'The email server host',
-                        'message' => 'Unable to connect to host.',
-                    ],
-                    [
-                        'name' => 'port',
-                        'description' => 'The email server port',
-                        'message' => 'Unable to connect to host.',
-                    ],
-                ],
+            $errors = [
+                new ErrorMessage('emailprofiles-0009', 'Invalid parameter \"host\"', 'Unable to connect to host.'),
+                new ErrorMessage('emailprofiles-0010', 'Invalid parameter \"port\"', 'Unable to connect to host.'),
             ];
             if ($profile->Secure == OutboundEmailProfile::SECURE_SSL) {
-                $data['outboundemailprofile_test_errors'][] = [
-                    'name' => 'secure',
-                    'description' => 'Whether to use SSL, TLS, or neither',
-                    'message' => 'Unable to connect to host via SSL.',
-                ];
+                $errors[] = new ErrorMessage('emailprofiles-0011', 'Invalid parameter \"secure\"', 'Unable to connect to host via SSL.');
             }
             return new JsonResponse(
-                data: $data,
-                status: StatusCode::OK,
+                $errors,
+                status: StatusCode::BadRequest,
             );
         } catch (TLSUnavailableException) {
             return new JsonResponse(
-                data: [
-                    'outboundemailprofile_test_result' => false,
-                    'outboundemailprofile_test_errors' => [
-                        [
-                            'name' => 'secure',
-                            'description' => 'Whether to use SSL, TLS, or neither',
-                            'message' => 'The selected profile requires TLS, but TLS negotiation was unavailable or unsuccessful.',
-                        ],
-                    ],
-                ],
-                status: StatusCode::OK,
+                new ErrorMessage('emailprofiles-0012', 'Invalid parameter \"secure\"', 'The selected profile requires TLS, but TLS negotiation was unavailable or unsuccessful.'),
+                status: StatusCode::BadRequest,
             );
         } catch (AuthenticationFailedException) {
             return new JsonResponse(
-                data: [
-                    'outboundemailprofile_test_result' => false,
-                    'outboundemailprofile_test_errors' => [
-                        [
-                            'name' => 'require_auth',
-                            'description' => 'Whether authentication is required',
-                            'message' => 'Authentication failed.',
-                        ],
-                        [
-                            'name' => 'username',
-                            'description' => 'The username to authenticate with',
-                            'message' => 'Authentication failed.',
-                        ],
-                        [
-                            'name' => 'password',
-                            'description' => 'The password to authenticate with',
-                            'message' => 'Authentication failed.',
-                        ],
-                    ],
+                [
+                    new ErrorMessage('emailprofiles-0013', 'Invalid parameter \"require_auth\"', 'Authentication failed.'),
+                    new ErrorMessage('emailprofiles-0014', 'Invalid parameter \"username\"', 'Authentication failed.'),
+                    new ErrorMessage('emailprofiles-0015', 'Invalid parameter \"password\"', 'Authentication failed.'),
                 ],
-                status: StatusCode::OK,
+                status: StatusCode::BadRequest,
             );
         } catch (NotAuthenticatedException) {
             return new JsonResponse(
-                data: [
-                    'outboundemailprofile_test_result' => false,
-                    'outboundemailprofile_test_errors' => [
-                        [
-                            'name' => 'require_auth',
-                            'description' => 'Whether authentication is required',
-                            'message' => 'The email server requires authentication.',
-                        ],
-                    ],
-                ],
-                status: StatusCode::OK,
+                new ErrorMessage('emailprofiles-0016', 'Invalid parameter \"require_auth\"', 'The email server requires authentication.'),
+                status: StatusCode::BadRequest,
             );
         } catch (Exception) {
             $result = false;
@@ -475,24 +311,11 @@ class OutboundEmailProfilesController extends BaseController
 
         if (!$result) {
             return new JsonResponse(
-                data: [
-                    'outboundemailprofile_test_result' => false,
-                    'outboundemailprofile_test_errors' => [
-                        [
-                            'name' => 'all',
-                            'message' => 'The email could not be sent.',
-                        ],
-                    ],
-                ],
-                status: StatusCode::OK,
+                new ErrorMessage('emailprofiles-0017', 'Unable to validate', 'The email could not be sent.'),
+                status: StatusCode::BadRequest,
             );
         }
 
-        return new JsonResponse(
-            data: [
-                'outboundemailprofile_test_result' => true,
-            ],
-            status: StatusCode::OK,
-        );
+        return new Response(status: StatusCode::NoContent);
     }
 }
