@@ -34,7 +34,7 @@ class MockIdentityService implements IIdentityService
     public function __construct()
     {
         $this->user = new User(role: $this->GetVisitorUserRole());
-        $this->allUsers = [];
+        $this->allUsers = [$this->user];
         $this->allUserRoles = [];
         $this->availPermissions = [];
         $this->userRole = null;
@@ -77,15 +77,19 @@ class MockIdentityService implements IIdentityService
     }
     public function GetUserFromRandomId(string $randomId): ?User
     {
-        return null;
+        return $this->user;
     }
     public function GetUserFromEmail(string $email): ?User
     {
-        return null;
+        return $this->user;
+    }
+    public function GetUserFromId(string $randomId): ?User
+    {
+        return $this->user;
     }
     
     // ==== Session-related methods ====
-    public function GetSessionFromRequest(Request $request, $random_id=null, $key=null): ?Session
+    public function GetSessionFromRequest(Request $request, $random_id=null, $key=null, $ignore_browser=false): ?Session
     {
         return null;
     }

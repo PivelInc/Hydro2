@@ -3,6 +3,7 @@
 namespace Tests;
 
 use Exception;
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
@@ -38,14 +39,14 @@ class JsonDecodeToClassTest extends TestCase
         $this->assertNull($person);
     }
 
-    public function testDeserializeToClassNotImplementingInterfaceShouldReturnNull()
+    public function testDeserializeToClassNotImplementingInterfaceShouldThrow()
     {
         $json = "{\"name\":\"John Doe\"}";
 
+        $this->expectException(InvalidArgumentException::class);
+
         /** @var Pet */
         $pet = JsonDecodeToClass::json_decode_to_class($json, Pet::class);
-
-        $this->assertNull($pet);
     }
 
     public function testDeserializeMissingPropertyShouldReturnNull()

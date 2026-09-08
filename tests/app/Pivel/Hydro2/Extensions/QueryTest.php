@@ -19,7 +19,7 @@ class QueryTest extends TestCase
         $this->assertInstanceOf(Query::class, $query);
         $this->assertEquals(0, $query->GetOffset());
         $this->assertEquals(-1, $query->GetLimit());
-        $this->assertEquals([], $query->GetFilterParameters());
+        $this->assertEquals([], $query->GetRawFilterParameters());
         $this->assertEquals([], $query->GetOrderTree());
         $this->assertEquals($query::AND, $query->GetFilterTree()['booloperator']);
         $this->assertEquals([], $query->GetFilterTree()['operands']);
@@ -33,12 +33,12 @@ class QueryTest extends TestCase
 
         $operands = $query->GetFilterTree()['operands'];
 
-        $this->assertCount(1, $query->GetFilterParameters());
+        $this->assertCount(1, $query->GetRawFilterParameters());
         $this->assertCount(1, $operands);
         $this->assertEquals(Query::EQUAL, $operands[0]['operator']);
         $this->assertEquals(false, $operands[0]['negated']);
         $this->assertEquals('fakeField', $operands[0]['field']);
-        $this->assertEquals('fakeValue', $query->GetFilterParameters()[$operands[0]['parameterKey']]);
+        $this->assertEquals('fakeValue', $query->GetRawFilterParameters()[$operands[0]['parameterKey']]);
     }
 
     public function testNotEqual()
@@ -49,12 +49,12 @@ class QueryTest extends TestCase
 
         $operands = $query->GetFilterTree()['operands'];
 
-        $this->assertCount(1, $query->GetFilterParameters());
+        $this->assertCount(1, $query->GetRawFilterParameters());
         $this->assertCount(1, $operands);
         $this->assertEquals(Query::EQUAL, $operands[0]['operator']);
         $this->assertEquals(true, $operands[0]['negated']);
         $this->assertEquals('fakeField', $operands[0]['field']);
-        $this->assertEquals('fakeValue', $query->GetFilterParameters()[$operands[0]['parameterKey']]);
+        $this->assertEquals('fakeValue', $query->GetRawFilterParameters()[$operands[0]['parameterKey']]);
     }
 
     public function testGreaterThan()
@@ -65,12 +65,12 @@ class QueryTest extends TestCase
 
         $operands = $query->GetFilterTree()['operands'];
 
-        $this->assertCount(1, $query->GetFilterParameters());
+        $this->assertCount(1, $query->GetRawFilterParameters());
         $this->assertCount(1, $operands);
         $this->assertEquals(Query::GREATER_THAN, $operands[0]['operator']);
         $this->assertEquals(false, $operands[0]['negated']);
         $this->assertEquals('fakeField', $operands[0]['field']);
-        $this->assertEquals(0, $query->GetFilterParameters()[$operands[0]['parameterKey']]);
+        $this->assertEquals(0, $query->GetRawFilterParameters()[$operands[0]['parameterKey']]);
     }
 
     public function testGreaterThanOrEqual()
@@ -81,12 +81,12 @@ class QueryTest extends TestCase
 
         $operands = $query->GetFilterTree()['operands'];
 
-        $this->assertCount(1, $query->GetFilterParameters());
+        $this->assertCount(1, $query->GetRawFilterParameters());
         $this->assertCount(1, $operands);
         $this->assertEquals(Query::GREATER_THAN_OR_EQUAL, $operands[0]['operator']);
         $this->assertEquals(false, $operands[0]['negated']);
         $this->assertEquals('fakeField', $operands[0]['field']);
-        $this->assertEquals(0, $query->GetFilterParameters()[$operands[0]['parameterKey']]);
+        $this->assertEquals(0, $query->GetRawFilterParameters()[$operands[0]['parameterKey']]);
     }
 
     public function testLessThan()
@@ -97,12 +97,12 @@ class QueryTest extends TestCase
 
         $operands = $query->GetFilterTree()['operands'];
 
-        $this->assertCount(1, $query->GetFilterParameters());
+        $this->assertCount(1, $query->GetRawFilterParameters());
         $this->assertCount(1, $operands);
         $this->assertEquals(Query::LESS_THAN, $operands[0]['operator']);
         $this->assertEquals(false, $operands[0]['negated']);
         $this->assertEquals('fakeField', $operands[0]['field']);
-        $this->assertEquals(0, $query->GetFilterParameters()[$operands[0]['parameterKey']]);
+        $this->assertEquals(0, $query->GetRawFilterParameters()[$operands[0]['parameterKey']]);
     }
 
     public function testLessThanOrEqual()
@@ -113,12 +113,12 @@ class QueryTest extends TestCase
 
         $operands = $query->GetFilterTree()['operands'];
 
-        $this->assertCount(1, $query->GetFilterParameters());
+        $this->assertCount(1, $query->GetRawFilterParameters());
         $this->assertCount(1, $operands);
         $this->assertEquals(Query::LESS_THAN_OR_EQUAL, $operands[0]['operator']);
         $this->assertEquals(false, $operands[0]['negated']);
         $this->assertEquals('fakeField', $operands[0]['field']);
-        $this->assertEquals(0, $query->GetFilterParameters()[$operands[0]['parameterKey']]);
+        $this->assertEquals(0, $query->GetRawFilterParameters()[$operands[0]['parameterKey']]);
     }
     
     public function testLike()
@@ -129,12 +129,12 @@ class QueryTest extends TestCase
 
         $operands = $query->GetFilterTree()['operands'];
 
-        $this->assertCount(1, $query->GetFilterParameters());
+        $this->assertCount(1, $query->GetRawFilterParameters());
         $this->assertCount(1, $operands);
         $this->assertEquals(Query::LIKE, $operands[0]['operator']);
         $this->assertEquals(false, $operands[0]['negated']);
         $this->assertEquals('fakeField', $operands[0]['field']);
-        $this->assertEquals('fakeValue', $query->GetFilterParameters()[$operands[0]['parameterKey']]);
+        $this->assertEquals('fakeValue', $query->GetRawFilterParameters()[$operands[0]['parameterKey']]);
     }
     
     public function testNotLike()
@@ -145,12 +145,12 @@ class QueryTest extends TestCase
 
         $operands = $query->GetFilterTree()['operands'];
 
-        $this->assertCount(1, $query->GetFilterParameters());
+        $this->assertCount(1, $query->GetRawFilterParameters());
         $this->assertCount(1, $operands);
         $this->assertEquals(Query::LIKE, $operands[0]['operator']);
         $this->assertEquals(true, $operands[0]['negated']);
         $this->assertEquals('fakeField', $operands[0]['field']);
-        $this->assertEquals('fakeValue', $query->GetFilterParameters()[$operands[0]['parameterKey']]);
+        $this->assertEquals('fakeValue', $query->GetRawFilterParameters()[$operands[0]['parameterKey']]);
     }
 
     public function testLimit()
@@ -213,19 +213,19 @@ class QueryTest extends TestCase
 
         $operands = $combinedQuery->GetFilterTree()['operands'];
 
-        $this->assertCount(2, $combinedQuery->GetFilterParameters());
+        $this->assertCount(2, $combinedQuery->GetRawFilterParameters());
         $this->assertEquals(Query::AND, $combinedQuery->GetFilterTree()['booloperator']);
         $this->assertCount(2, $operands);
 
         $this->assertEquals(Query::EQUAL, $operands[0]['operator']);
         $this->assertEquals(false, $operands[0]['negated']);
         $this->assertEquals('fakeField1', $operands[0]['field']);
-        $this->assertEquals(1, $combinedQuery->GetFilterParameters()[$operands[0]['parameterKey']]);
+        $this->assertEquals(1, $combinedQuery->GetRawFilterParameters()[$operands[0]['parameterKey']]);
         
         $this->assertEquals(Query::EQUAL, $operands[1]['operator']);
         $this->assertEquals(true, $operands[1]['negated']);
         $this->assertEquals('fakeField3', $operands[1]['field']);
-        $this->assertEquals(2, $combinedQuery->GetFilterParameters()[$operands[1]['parameterKey']]);
+        $this->assertEquals(2, $combinedQuery->GetRawFilterParameters()[$operands[1]['parameterKey']]);
 
         $orderTree = $combinedQuery->GetOrderTree();
 
@@ -255,7 +255,7 @@ class QueryTest extends TestCase
         $combinedQuery = $query1->Or($query2);
 
         $outerOperands = $combinedQuery->GetFilterTree()['operands'];
-        $this->assertCount(2, $combinedQuery->GetFilterParameters());
+        $this->assertCount(2, $combinedQuery->GetRawFilterParameters());
         $this->assertEquals(Query::AND, $combinedQuery->GetFilterTree()['booloperator']);
         $this->assertCount(1, $outerOperands);
 
@@ -269,7 +269,7 @@ class QueryTest extends TestCase
         $this->assertEquals(Query::EQUAL, $firstOperands[0]['operator']);
         $this->assertEquals(false, $firstOperands[0]['negated']);
         $this->assertEquals('fakeField1', $firstOperands[0]['field']);
-        $this->assertEquals(1, $combinedQuery->GetFilterParameters()[$firstOperands[0]['parameterKey']]);
+        $this->assertEquals(1, $combinedQuery->GetRawFilterParameters()[$firstOperands[0]['parameterKey']]);
         
         $secondOperands = $orOperands[1]['operands'];
         $this->assertCount(1, $secondOperands);
@@ -277,7 +277,7 @@ class QueryTest extends TestCase
         $this->assertEquals(Query::EQUAL, $secondOperands[0]['operator']);
         $this->assertEquals(true, $secondOperands[0]['negated']);
         $this->assertEquals('fakeField3', $secondOperands[0]['field']);
-        $this->assertEquals(2, $combinedQuery->GetFilterParameters()[$secondOperands[0]['parameterKey']]);
+        $this->assertEquals(2, $combinedQuery->GetRawFilterParameters()[$secondOperands[0]['parameterKey']]);
 
         $orderTree = $combinedQuery->GetOrderTree();
 
