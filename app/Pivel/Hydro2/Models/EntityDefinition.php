@@ -2,6 +2,7 @@
 
 namespace Pivel\Hydro2\Models;
 
+use BackedEnum;
 use Countable;
 use DateTime;
 use Iterator;
@@ -13,6 +14,7 @@ use Pivel\Hydro2\Attributes\Entity\ForeignEntityManyToOne;
 use Pivel\Hydro2\Models\Database\ReferenceBehaviour;
 use Pivel\Hydro2\Models\Database\Type;
 use ReflectionClass;
+use ReflectionEnum;
 use ReflectionUnionType;
 use TypeError;
 
@@ -116,6 +118,16 @@ class EntityDefinition implements Iterator, Countable
 
             // ensure that the property has a type
             $type = $property->getType();
+            
+            // check if this is an enum type, and use its backing type if it is
+            if (is_subclass_of($type->getName(), BackedEnum::class)) {
+                $enum = new ReflectionEnum($type->getName());
+                if (!$enum->isBacked()) {
+                    continue; // only backed enums are supported
+                }
+                $type = $enum->getBackingType();
+            }
+
             if ($type === null) {
                 continue; // a type must be specified either in the attribute or in the entity.
             }
@@ -167,11 +179,11 @@ class EntityDefinition implements Iterator, Countable
                     if ($pFkAttribute->OtherEntityFieldName !== null) {
                         $fkPkField = (new EntityDefinition($fkClass))->GetFieldByFieldName($pFkAttribute->OtherEntityFieldName);
                     }
-                    if ($fkPkField == null) {
-                        $fkPkField = (new EntityDefinition($fkClass))->GetPrimaryKeyField();
-                        if ($fkPkField === null) {
-                            continue; // this is a foreign key, but couldn't identify the inverse field name.
-                        }
+                }
+                if ($fkPkField == null) {
+                    $fkPkField = (new EntityDefinition($fkClass))->GetPrimaryKeyField();
+                    if ($fkPkField === null) {
+                        continue; // this is a foreign key, but couldn't identify the inverse field name.
                     }
                 }
             }
