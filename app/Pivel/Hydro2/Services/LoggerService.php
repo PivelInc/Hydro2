@@ -36,7 +36,7 @@ class LoggerService implements ILoggerService
         $newLog = "#Version: 1.0\n";
         $newLog .= "#Software: Hydro2\n";
         $newLog .= "#Fields: date time type package message\n";
-        file_put_contents($this->logFilePath . DIRECTORY_SEPARATOR . "{$this->fileNamePrefix}", $newLog);
+        file_put_contents($this->logFilePath . DIRECTORY_SEPARATOR . "{$this->fileNamePrefix}.log", $newLog);
     }
 
     private function AppendLine(array $fields)
