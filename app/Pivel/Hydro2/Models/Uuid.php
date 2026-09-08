@@ -27,6 +27,11 @@ class Uuid implements JsonSerializable
         return $this->uuidData === str_repeat("\0", 16);
     }
 
+    public function Equals(Uuid $other): bool
+    {
+        return $this->uuidData === $other->uuidData;
+    }
+
     public function __toString(): string
     {
         return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($this->uuidData), 4));
