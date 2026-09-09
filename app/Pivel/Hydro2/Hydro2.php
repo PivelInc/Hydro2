@@ -266,6 +266,11 @@ class Hydro2
         return $response;
     }
 
+    public function OnSignal(int $signal, callable $handler) : void
+    {
+        pcntl_signal($signal, $handler);
+    }
+
     public function Run() : self
     {
         // Process incoming request

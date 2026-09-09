@@ -28,7 +28,8 @@
         "Pivel\\Hydro2\\Controllers\\UserController",
         "Pivel\\Hydro2\\Controllers\\UserRoleController",
         "Pivel\\Hydro2\\Controllers\\SessionController",
-        "Pivel\\Hydro2\\Controllers\\AdminPanelController"
+        "Pivel\\Hydro2\\Controllers\\AdminPanelController",
+        "Pivel\\Hydro2\\Controllers\\TidalController"
     ],
 
     "singletons": [
