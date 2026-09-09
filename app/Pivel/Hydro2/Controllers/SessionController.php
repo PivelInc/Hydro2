@@ -20,6 +20,7 @@ use Pivel\Hydro2\Models\Permissions;
 use Pivel\Hydro2\Services\Database\DatabaseService;
 use Pivel\Hydro2\Services\IdentityService;
 use Pivel\Hydro2\Services\ILoggerService;
+use Pivel\Hydro2\Services\Tidal\ITidalService;
 use Pivel\Hydro2\Services\UserNotificationService;
 use Pivel\Hydro2\Views\EmailViews\Identity\NewUserVerificationEmailView;
 use Pivel\Hydro2\Views\Identity\LoginView;
@@ -31,18 +32,22 @@ class SessionController extends BaseController
     private ILoggerService $_logger;
     private IdentityService $_identityService;
     private UserNotificationService $_userNotificationService;
+    private ITidalService $_tidalService;
 
     public function __construct(
         Hydro2 $app,
         ILoggerService $logger,
         IdentityService $identityService,
         UserNotificationService $userNotificationService,
+        ITidalService $tidalService,
         Request $request,
     )
     {
         $this->_app = $app;
         $this->_logger = $logger;
         $this->_identityService = $identityService;
+        $this->_userNotificationService = $userNotificationService;
+        $this->_tidalService = $tidalService;
         parent::__construct($request);
     }
 
@@ -146,11 +151,17 @@ class SessionController extends BaseController
 
         setcookie('sridkey', $session->RandomId . ';' . $session->Key, $session->ExpireTime->getTimestamp(), '/', httponly: true);
 
+        $tidal_token = null;
+        if ($this->_tidalService->IsTidalRunning()) {
+            $tidal_token = $this->_tidalService->CreateToken($session->ExpireTime, $user)->token;
+        }
+
         return new JsonResponse(
             [
                 'authenticated' => true,
                 'challenge_required' => ($user->GetUserRole()->ChallengeIntervalMinutes>0),
                 'password_change_required' => $user->IsPasswordChangeRequired(),
+                'tidal_token' => $tidal_token,
             ],
             status: StatusCode::OK,
         );

@@ -14,6 +14,7 @@ use Pivel\Hydro2\Services\ILoggerService;
 use Pivel\Hydro2\Services\PackageManifestService;
 use Pivel\Hydro2\Services\Tidal\ITidalServer;
 use Pivel\Hydro2\Services\Tidal\ITidalService;
+use Pivel\Hydro2\Services\Tidal\TidalConnection;
 use Pivel\Hydro2\Services\UserNotificationService;
 
 #[RoutePrefix('api/hydro2/tidal')]
@@ -56,9 +57,12 @@ class TidalController extends BaseController
     }
 
     #[TidalSubscription('pivel.hydro2.ping')]
-    public function OnPing(ITidalServer $server, string $token, object|null $data): void
+    public function OnPing(ITidalServer $server, TidalConnection|null $connection, object|null $data): void
     {
         $this->_logger->Info("Hydro2/Tidal", "Received ping from Tidal service.");
-        $server->SendToClient($token, 'pivel.hydro2.pong', (object)['message' => 'Pong!']);
+        if ($connection === null) {
+            return;
+        }
+        $server->SendToClient($connection->token, 'pivel.hydro2.pong');
     }
 }

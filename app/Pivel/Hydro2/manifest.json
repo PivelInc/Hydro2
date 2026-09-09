@@ -38,7 +38,8 @@
         {"class":"Pivel\\Hydro2\\Services\\IdentityService"},
         {"class":"Pivel\\Hydro2\\Services\\UserNotificationService"},
         {"class":"Pivel\\Hydro2\\Services\\Database\\DatabaseService"},
-        {"class":"Pivel\\Hydro2\\Services\\Email\\EmailService"}
+        {"class":"Pivel\\Hydro2\\Services\\Email\\EmailService"},
+        {"class":"Pivel\\Hydro2\\Services\\Tidal\\TidalService","interface":"Pivel\\Hydro2\\Services\\Tidal\\ITidalService"}
     ],
 
     "persistence_providers": [

@@ -9,17 +9,18 @@ use Pivel\Hydro2\Services\ILoggerService;
 
 interface ITidalServer
 {
-    public function __construct(Hydro2 $app, ILoggerService $logger, string $address);
+    public function __construct(Hydro2 $app, ILoggerService $logger, ITidalService $tidalService, string $address);
     public function Start() : void;
-    public function Stop() : void;
+    public static function Stop() : void;
+    public static function IsRunning() : bool;
     /**
      * Subscribe to a Tidal event.
      *
      * @param string $event The event to subscribe to.
-     * @param callable(ITidalServer $server, object|null $data) $callback The callback to invoke when the event is triggered.
+     * @param callable(ITidalServer $server, TidalConnection $connection, object|null $data) $callback The callback to invoke when the event is triggered.
      */
     public function Subscribe(string $event, callable $callback) : void;
-    public function Publish(string $event, object|null $data = null) : void;
+    public function Publish(string $event, TidalConnection|null $connection = null, object|null $data = null) : void;
     public function SendToAll(string $event, object|null $data = null) : void;
     public function SendToUser(User $user, string $event, object|null $data = null) : void;
     public function SendToUserId(Uuid $user, string $event, object|null $data = null) : void;

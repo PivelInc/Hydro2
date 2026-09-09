@@ -12,17 +12,18 @@ class TidalServer implements ITidalServer
 {
     private Hydro2 $_app;
     private ILoggerService $_logger;
+    private ITidalService $_tidalService;
     private string $_address;
 
     private array $_subscriptions = [];
     /**
      * Key is token, value is an array of connections for that token.
-     * @var array<string, array<int, mixed>> $_authenticatedConnections
+     * @var array<string, array<int, TidalConnection>> $_authenticatedConnections
      */
     private array $_authenticatedConnections = [];
     /**
-     * Key is event, value is an array of client tokens for that event.
-     * @var array<string, array<int, mixed>> $_clientSubscriptions
+     * Key is event, value is an array of client connections for that event.
+     * @var array<string, array<int, TidalConnection>> $_clientSubscriptions
      */
     private array $_clientSubscriptions = [];
 
@@ -30,10 +31,11 @@ class TidalServer implements ITidalServer
     // contains all connections, even if they haven't submitted a token yet.
     private array $_connections = [];
 
-    public function __construct(Hydro2 $app, ILoggerService $logger, string $address)
+    public function __construct(Hydro2 $app, ILoggerService $logger, ITidalService $tidalService, string $address)
     {
         $this->_app = $app;
         $this->_logger = $logger;
+        $this->_tidalService = $tidalService;
         $this->_address = $address;
     }
 
@@ -67,9 +69,25 @@ class TidalServer implements ITidalServer
         $this->loop($socket);
     }
 
-    public function Stop(): void
+    public static function Stop(): void
     {
-        throw new \Exception("Not implemented");
+        touch(__DIR__ . '/tidal_server_stop');
+        while (self::IsRunning()) {
+            sleep(1);
+        }
+        unlink(__DIR__ . '/tidal_server_stop');
+    }
+
+    public static function IsRunning() : bool {
+        // check if /tidal_server_running.lock exists and is less than 5 seconds old
+        $lock_file = __DIR__ . '/tidal_server_running.lock';
+        if (file_exists($lock_file)) {
+            $last_modified = filemtime($lock_file);
+            if (time() - $last_modified < 5) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public function Subscribe(string $event, callable $callback): void
@@ -77,9 +95,19 @@ class TidalServer implements ITidalServer
         $this->_subscriptions[$event][] = $callback;
     }
 
-    public function Publish(string $event, object|null $data = null): void
+    public function Publish(string $event, TidalConnection|null $connection = null, object|null $data = null): void
     {
-        throw new \Exception("Not implemented");
+        // Process the event and data
+        if (isset($this->_subscriptions[$event])) {
+            foreach ($this->_subscriptions[$event] as $callback) {
+                try {
+                    call_user_func($callback, $this, $connection, $data);
+                } catch (\Throwable $e) {
+                    echo "Error invoking Tidal subscriber for event '$event': " . $e->getMessage() . "\n";
+                    $this->_logger->Error("TidalServer", "Error invoking Tidal subscriber for event '$event': " . $e->getMessage());
+                }
+            }
+        }
     }
 
     public function SendToAll(string $event, object|null $data = null): void
@@ -96,7 +124,11 @@ class TidalServer implements ITidalServer
 
     public function SendToUserId(Uuid $user, string $event, object|null $data = null): void
     {
-        throw new \Exception("Not implemented");
+        $tokens = $this->_tidalService->GetTokensByUserId($user);
+
+        foreach ($tokens as $token) {
+            $this->SendToClient($token->token, $event, $data);
+        }
     }
 
     public function SendToClient(string $token, string $event, object|null $data = null): void
@@ -108,13 +140,42 @@ class TidalServer implements ITidalServer
         foreach ($this->_authenticatedConnections[$token] as $connection) {
             // send the event and data to the connection
             //$connection->send(json_encode(['event' => $event, 'data' => $data]));
+            $messageData = ['event' => $event];
+            if ($data !== null) {
+                $messageData['data'] = $data;
+            }
+            $this->send($connection, json_encode($messageData));
         }
     }
 
     // ======= Socket management methods =======
     private function loop(Socket $socket)
     {
+        $nextKeepAliveTime = time() + 60; // 30 seconds from now
         while (true) {
+            touch(__DIR__ . '/tidal_server_running.lock');
+            if (file_exists(__DIR__ . '/tidal_server_stop')) {
+                unlink(__DIR__ . '/tidal_server_stop');
+                unlink(__DIR__ . '/tidal_server_running.lock');
+                // disconnect all clients
+                echo "Stopping Tidal server. Disconnecting all clients...\n";
+                $this->_logger->Info("TidalServer", "Stopping Tidal server. Disconnecting all clients...");
+                foreach ($this->_connections as $connection) {
+                    $this->disconnectClient($connection->socket, false);
+                }
+                socket_close($socket);
+                echo "Tidal server stopped.\n";
+                $this->_logger->Info("TidalServer", "Tidal server stopped.");
+                break;
+            }
+
+            $now = time();
+            if ($now >= $nextKeepAliveTime) {
+                // send keep-alive ping to all clients
+                $this->SendToAll('pivel.hydro2.keepalive');
+                $nextKeepAliveTime = $now + 60; // next keep-alive in 30 seconds
+            }
+
             $r = $w = $e = array_merge(
                 [$socket],
                 array_map(function(TidalConnection $conn) { return $conn->socket; }, $this->_connections)
@@ -124,11 +185,13 @@ class TidalServer implements ITidalServer
                 if ($read_socket === $socket) {
                     $client_socket = socket_accept($socket);
                     if (!$client_socket) {
+                        echo "Failed to accept client connection: " . socket_strerror(socket_last_error($socket)) . "\n";
                         $this->_logger->Error("TidalServer", "Failed to accept client connection: " . socket_strerror(socket_last_error($socket)));
                         continue;
                     }
 
                     $this->handleNewConnection($client_socket);
+                    echo "New client connected.\n";
                     $this->_logger->Info("TidalServer", "New client connected.");
                     continue;
                 }
@@ -146,10 +209,12 @@ class TidalServer implements ITidalServer
                         case SOCKET_EHOSTUNREACH:
                         case SOCKET_EREMOTEIO:
                         case 125: // ECANCELED
+                            echo "Client disconnected.\n";
                             $this->_logger->Info("TidalServer", "Client disconnected.");
                             $this->disconnectClient($read_socket);
                             break;
                         default:
+                            echo "Socket error: " . socket_strerror(socket_last_error($read_socket)) . "\n";
                             $this->_logger->Error("TidalServer", "Socket error: " . socket_strerror(socket_last_error($read_socket)));
                     }
                     continue;
@@ -164,6 +229,7 @@ class TidalServer implements ITidalServer
                 // get TidalConnection from socket
                 $connection = $this->getTidalConnectionFromSocket($read_socket);
                 if (!$connection) {
+                    echo "Failed to get TidalConnection from socket.\n";
                     $this->_logger->Error("TidalServer", "Failed to get TidalConnection from socket.");
                     continue;
                 }
@@ -171,6 +237,17 @@ class TidalServer implements ITidalServer
                 // if handshake is not complete, perform handshake
                 // add buffer to connection's buffer
                 // if buffer contains a complete message, process it
+                if (!$connection->isHandshakeComplete) {
+                    $tmp = str_replace("\r", "", $buffer);
+                    if (strpos($tmp, "\n\n") === false) {
+                        continue;
+                    }
+
+                    $this->doHandshake($connection, $buffer);
+                    continue;
+                }
+
+                $this->splitPacket($n, $buffer, $connection);
             }
         }
     }
@@ -179,8 +256,80 @@ class TidalServer implements ITidalServer
     // unadjusted code
     private function process(TidalConnection $connection, string $message)
     {
-        echo "Processing message from user {$connection->id}: $message\n";
-        //$connection->processMessage($this, $message);
+        $messageData = json_decode(trim($message), true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            echo "Failed to decode JSON message from user {$connection->id}: " . json_last_error_msg() . "\n";
+            $this->_logger->Error("TidalServer", "Failed to decode JSON message from user {$connection->id}: " . json_last_error_msg());
+            $this->send($connection, json_encode(['error' => 'Invalid JSON message']));
+            return;
+        }
+
+        if (!$connection->isAuthenticated) {
+            // first message must have "token" field
+            if (!isset($messageData['token'])) {
+                $this->send($connection, json_encode(['error' => 'Missing token']));
+                return;
+            }
+
+            // validate token and get user if there is one associated
+            $token = $this->_tidalService->GetTokenByValue($messageData['token']);
+            if (!$token) {
+                $this->send($connection, json_encode(['error' => 'Invalid token']));
+                return;
+            }
+
+            $connection->token = $token->token;
+            $connection->user = $token->user;
+            $connection->isAuthenticated = true;
+            $this->_authenticatedConnections[$connection->token][] = $connection;
+        }
+
+        // message contents:
+        // {'subscribe': ['event1', 'event2']}
+        // {'unsubscribe': ['event1', 'event2']}
+        // {'event': 'event_name', 'data': {...}}`
+        // {'events': []}
+        if (isset($messageData['subscribe'])) {
+            foreach ($messageData['subscribe'] as $event) {
+                if (!isset($this->_clientSubscriptions[$event])) {
+                    $this->_clientSubscriptions[$event] = [];
+                }
+                if (!in_array($connection, $this->_clientSubscriptions[$event])) {
+                    $this->_clientSubscriptions[$event][] = $connection;
+                }
+                if (!in_array($event, $connection->subscriptions)) {
+                    $connection->subscriptions[] = $event;
+                }
+            }
+        }
+        if (isset($messageData['unsubscribe'])) {
+            foreach ($messageData['unsubscribe'] as $event) {
+                if (isset($this->_clientSubscriptions[$event])) {
+                    $index = array_search($connection, $this->_clientSubscriptions[$event]);
+                    if ($index !== false) {
+                        unset($this->_clientSubscriptions[$event][$index]);
+                    }
+                }
+                if (($key = array_search($event, $connection->subscriptions)) !== false) {
+                    unset($connection->subscriptions[$key]);
+                }
+            }
+        }
+        if (isset($messageData['event'])) {
+            // publish event to all subscribers
+            $event = $messageData['event'];
+            $data = $messageData['data'] ?? null;
+
+            $this->Publish($event, $connection, $data);
+        }
+        if (isset($messageData['events'])) {
+            foreach ($messageData['events'] as $eventData) {
+                $event = $eventData['event'];
+                $data = $eventData['data'] ?? null;
+
+                $this->Publish($event, $connection, $data);
+            }
+        }
     }
 
     private function onConnected($user) {}
@@ -216,7 +365,7 @@ class TidalServer implements ITidalServer
         // remove from clientSubscriptions[$event] for each event in $connection->subscriptions
         foreach ($connection->subscriptions as $event) {
             if (isset($this->_clientSubscriptions[$event])) {
-                $index = array_search($connection->token, $this->_clientSubscriptions[$event]);
+                $index = array_search($connection, $this->_clientSubscriptions[$event]);
                 if ($index !== false) {
                     unset($this->_clientSubscriptions[$event][$index]);
                 }
@@ -250,6 +399,7 @@ class TidalServer implements ITidalServer
 
     private function doHandshake(TidalConnection $connection, string $buffer)
     {
+        echo "Performing handshake with client...\n";
         $magicGUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
         $headers = array();
         $lines = explode("\n", $buffer);
@@ -279,13 +429,9 @@ class TidalServer implements ITidalServer
         }
         if (!isset($headers['sec-websocket-key'])) {
             $handshakeResponse = "HTTP/1.1 400 Bad Request";
-        } else {
         }
         if (!isset($headers['sec-websocket-version']) || strtolower($headers['sec-websocket-version']) != 13) {
             $handshakeResponse = "HTTP/1.1 426 Upgrade Required\r\nSec-WebSocketVersion: 13";
-        }
-        if (!isset($headers['origin']) || !$this->checkOrigin($headers['origin'])) {
-            $handshakeResponse = "HTTP/1.1 403 Forbidden";
         }
         if (isset($headers['sec-websocket-protocol']) && !$this->checkWebsocProtocol($headers['sec-websocket-protocol'])) {
             $handshakeResponse = "HTTP/1.1 400 Bad Request";
@@ -297,6 +443,7 @@ class TidalServer implements ITidalServer
         // Done verifying the _required_ headers and optionally required headers.
 
         if (isset($handshakeResponse)) {
+            echo "Handshake failed. Sending response: $handshakeResponse\n";
             socket_write($connection->socket, $handshakeResponse, strlen($handshakeResponse));
             $this->disconnectClient($connection->socket);
             return;
@@ -318,6 +465,7 @@ class TidalServer implements ITidalServer
 
         $handshakeResponse = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: $handshakeToken$subProtocol$extensions\r\n";
         socket_write($connection->socket, $handshakeResponse, strlen($handshakeResponse));
+        echo "Handshake complete with client.\n";
         $this->onConnected($connection);
     }
 

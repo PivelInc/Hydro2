@@ -268,7 +268,10 @@ class Hydro2
 
     public function OnSignal(int $signal, callable $handler) : void
     {
-        pcntl_signal($signal, $handler);
+        if (function_exists('pcntl_async_signals')) {
+            pcntl_async_signals(true);
+            pcntl_signal($signal, $handler);
+        }
     }
 
     public function Run() : self
