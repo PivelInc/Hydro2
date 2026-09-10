@@ -22,6 +22,8 @@ interface ITidalServer
     public function Subscribe(string $event, callable $callback) : void;
     public function Publish(string $event, TidalConnection|null $connection = null, object|null $data = null) : void;
     public function SendToAll(string $event, object|null $data = null) : void;
+    public function SendToUsersWithPermission(string $permission, string $event, object|null $data = null) : void;
+    public function SendToUsersWithTokenReference(string $reference, string $event, object|null $data = null) : void;
     public function SendToUser(User $user, string $event, object|null $data = null) : void;
     public function SendToUserId(Uuid $user, string $event, object|null $data = null) : void;
     public function SendToClient(string $token, string $event, object|null $data = null) : void;

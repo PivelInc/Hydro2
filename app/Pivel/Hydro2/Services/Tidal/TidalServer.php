@@ -2,6 +2,7 @@
 
 namespace Pivel\Hydro2\Services\Tidal;
 
+use Override;
 use Pivel\Hydro2\Hydro2;
 use Pivel\Hydro2\Models\Identity\User;
 use Pivel\Hydro2\Models\Uuid;
@@ -117,6 +118,36 @@ class TidalServer implements ITidalServer
         }
     }
 
+    public function SendToUsersWithPermission(string $permission, string $event, object|null $data = null) : void
+    {
+        foreach ($this->_authenticatedConnections as $token => $connections) {
+            foreach ($connections as $connection) {
+                if (!$connection->user->GetUserRole()->HasPermission($permission)) {
+                    // token is per user, so if one connection for this token doesn't have permission, we can skip the rest of the connections for this token
+                    break;
+                }
+
+                $this->SendToClient($token, $event, $data);
+            }
+        }
+    }
+
+    #[Override]
+    public function SendToUsersWithTokenReference(string $reference, string $event, ?object $data = null): void
+    {
+        foreach ($this->_authenticatedConnections as $token => $connections) {
+            foreach ($connections as $connection) {
+                if ($connection->token?->reference !== $reference) {
+                    // connections all share the same token, so if one connection for this token doesn't match the reference,
+                    // we can skip the rest of the connections for this token
+                    break;
+                }
+
+                $this->SendToClient($token, $event, $data);
+            }
+        }
+    }
+
     public function SendToUser(User $user, string $event, object|null $data = null): void
     {
         $this->SendToUserId($user->Id, $event, $data);
@@ -221,6 +252,7 @@ class TidalServer implements ITidalServer
                 }
 
                 if ($n === 0) {
+                    echo "Client disconnected.\n";
                     $this->_logger->Info("TidalServer", "Client disconnected.");
                     $this->disconnectClient($read_socket);
                     continue;
@@ -278,10 +310,10 @@ class TidalServer implements ITidalServer
                 return;
             }
 
-            $connection->token = $token->token;
+            $connection->token = $token;
             $connection->user = $token->user;
             $connection->isAuthenticated = true;
-            $this->_authenticatedConnections[$connection->token][] = $connection;
+            $this->_authenticatedConnections[$connection->token->token][] = $connection;
         }
 
         // message contents:
@@ -345,6 +377,7 @@ class TidalServer implements ITidalServer
 
     private function disconnectClient(Socket $socket, $triggerClosed = true, $sockErrNo = null)
     {
+        echo "Disconnecting client...\n";
         $connection = $this->getTidalConnectionFromSocket($socket);
 
         if ($connection === null) {
@@ -355,10 +388,10 @@ class TidalServer implements ITidalServer
         unset($this->_connections[$connection->id]);
 
         // remove from authenticatedconnections[$connection->token]
-        if (!is_null($connection->token) && isset($this->_authenticatedConnections[$connection->token])) {
-            $index = array_search($connection, $this->_authenticatedConnections[$connection->token]);
+        if (!is_null($connection->token) && isset($this->_authenticatedConnections[$connection->token->token])) {
+            $index = array_search($connection, $this->_authenticatedConnections[$connection->token->token]);
             if ($index !== false) {
-                unset($this->_authenticatedConnections[$connection->token][$index]);
+                unset($this->_authenticatedConnections[$connection->token->token][$index]);
             }
         }
 
