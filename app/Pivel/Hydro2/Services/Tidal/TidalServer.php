@@ -132,7 +132,6 @@ class TidalServer implements ITidalServer
         }
     }
 
-    #[Override]
     public function SendToUsersWithTokenReference(string $reference, string $event, ?object $data = null): void
     {
         foreach ($this->_authenticatedConnections as $token => $connections) {
