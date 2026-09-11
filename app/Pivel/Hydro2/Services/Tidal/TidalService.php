@@ -3,10 +3,12 @@
 namespace Pivel\Hydro2\Services\Tidal;
 
 use DateTime;
+use Override;
 use Pivel\Hydro2\Extensions\Query;
 use Pivel\Hydro2\Extensions\TidalController;
 use Pivel\Hydro2\Extensions\TidalSubscription;
 use Pivel\Hydro2\Hydro2;
+use Pivel\Hydro2\Models\HTTP\Request;
 use Pivel\Hydro2\Models\Identity\User;
 use Pivel\Hydro2\Models\Uuid;
 use Pivel\Hydro2\Services\Entity\IEntityRepository;
@@ -80,6 +82,22 @@ class TidalService implements ITidalService
         return $validTokens;
     }
 
+    #[Override]
+    public function GetTokensByReference(string $reference): array
+    {
+        $query = (new Query())->Equal('reference', $reference);
+        $tokens = $this->_tokenRepository->Read($query);
+
+        $validTokens = [];
+        foreach ($tokens as $token) {
+            if ($token->expires >= new DateTime()) {
+                $validTokens[] = $token;
+            }
+        }
+
+        return $validTokens;
+    }
+
     public function IsTidalRunning() : bool {
         return TidalServer::IsRunning();
     }
@@ -109,12 +127,12 @@ class TidalService implements ITidalService
         $subscribers = $this->GetSubscribers();
 
         foreach ($subscribers as $subscriber) {
-            $this->server->Subscribe($subscriber['event'], function(ITidalServer $server, TidalConnection|null $connection, object|null $data) use ($subscriber) {
+            $this->server->Subscribe($subscriber['event'], function(ITidalServer $server, TidalConnection|null $connection, array|null $data) use ($subscriber) {
                 $controller_class = $subscriber['controller_class'];
                 $controller_method = $subscriber['controller_method'];
-
+                $request = new Request([], [], [], []);
                 // get the instance of the controller from Hydro2's dependency injection container
-                $controller = $this->_app->ResolveDependency($controller_class);
+                $controller = $this->_app->ResolveDependency($controller_class, [$request]);
                 
                 try {
                     $this->_logger->Debug(self::LOG_PACKAGE_NAME, "Invoking Tidal subscriber: {$controller_class}::{$controller_method}");
@@ -159,6 +177,7 @@ class TidalService implements ITidalService
         $pkg_manifest = $this->_packageManifestService->GetPackageManifest();
         foreach ($pkg_manifest as $vendor_name => $vendor_pkg) {
             foreach ($vendor_pkg as $pkg_name => $pkg_info) {
+                echo "Checking package {$vendor_name}/{$pkg_name} for controllers...\n";
                 if (!isset($pkg_info['controllers'])) {
                     continue;
                 }
@@ -171,6 +190,7 @@ class TidalService implements ITidalService
 
         foreach ($controllers as $c) {
             $class = new ReflectionClass($c);
+            echo "Checking class {$class->getName()} for Tidal subscriptions...\n";
 
             if (count($class->getAttributes(TidalController::class)) == 0) {
                 continue;

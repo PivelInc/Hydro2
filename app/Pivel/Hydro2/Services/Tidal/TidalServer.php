@@ -96,7 +96,7 @@ class TidalServer implements ITidalServer
         $this->_subscriptions[$event][] = $callback;
     }
 
-    public function Publish(string $event, TidalConnection|null $connection = null, object|null $data = null): void
+    public function Publish(string $event, TidalConnection|null $connection = null, array|null $data = null): void
     {
         // Process the event and data
         if (isset($this->_subscriptions[$event])) {
@@ -111,14 +111,14 @@ class TidalServer implements ITidalServer
         }
     }
 
-    public function SendToAll(string $event, object|null $data = null): void
+    public function SendToAll(string $event, array|null $data = null): void
     {
         foreach ($this->_authenticatedConnections as $token => $connections) {
             $this->SendToClient($token, $event, $data);
         }
     }
 
-    public function SendToUsersWithPermission(string $permission, string $event, object|null $data = null) : void
+    public function SendToUsersWithPermission(string $permission, string $event, array|null $data = null) : void
     {
         foreach ($this->_authenticatedConnections as $token => $connections) {
             foreach ($connections as $connection) {
@@ -132,7 +132,7 @@ class TidalServer implements ITidalServer
         }
     }
 
-    public function SendToUsersWithTokenReference(string $reference, string $event, ?object $data = null): void
+    public function SendToUsersWithTokenReference(string $reference, string $event, ?array $data = null): void
     {
         foreach ($this->_authenticatedConnections as $token => $connections) {
             foreach ($connections as $connection) {
@@ -147,12 +147,12 @@ class TidalServer implements ITidalServer
         }
     }
 
-    public function SendToUser(User $user, string $event, object|null $data = null): void
+    public function SendToUser(User $user, string $event, array|null $data = null): void
     {
         $this->SendToUserId($user->Id, $event, $data);
     }
 
-    public function SendToUserId(Uuid $user, string $event, object|null $data = null): void
+    public function SendToUserId(Uuid $user, string $event, array|null $data = null): void
     {
         $tokens = $this->_tidalService->GetTokensByUserId($user);
 
@@ -161,7 +161,7 @@ class TidalServer implements ITidalServer
         }
     }
 
-    public function SendToClient(string $token, string $event, object|null $data = null): void
+    public function SendToClient(string $token, string $event, array|null $data = null): void
     {
         if (!isset($this->_authenticatedConnections[$token])) {
             return;
@@ -385,6 +385,7 @@ class TidalServer implements ITidalServer
 
         // remove from list of all connections
         unset($this->_connections[$connection->id]);
+        $connection->isAuthenticated = false;
 
         // remove from authenticatedconnections[$connection->token]
         if (!is_null($connection->token) && isset($this->_authenticatedConnections[$connection->token->token])) {

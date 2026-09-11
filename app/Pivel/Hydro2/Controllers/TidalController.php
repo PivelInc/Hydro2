@@ -57,12 +57,12 @@ class TidalController extends BaseController
     }
 
     #[TidalSubscription('pivel.hydro2.ping')]
-    public function OnPing(ITidalServer $server, TidalConnection|null $connection, object|null $data): void
+    public function OnPing(ITidalServer $server, TidalConnection|null $connection, array|null $data): void
     {
         $this->_logger->Info("Hydro2/Tidal", "Received ping from Tidal service.");
         if ($connection === null) {
             return;
         }
-        $server->SendToClient($connection->token, 'pivel.hydro2.pong');
+        $server->SendToClient($connection->token->token, 'pivel.hydro2.pong');
     }
 }

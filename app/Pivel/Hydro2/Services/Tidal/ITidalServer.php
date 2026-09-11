@@ -17,14 +17,14 @@ interface ITidalServer
      * Subscribe to a Tidal event.
      *
      * @param string $event The event to subscribe to.
-     * @param callable(ITidalServer $server, TidalConnection $connection, object|null $data) $callback The callback to invoke when the event is triggered.
+     * @param callable(ITidalServer $server, TidalConnection $connection, array|null $data) $callback The callback to invoke when the event is triggered.
      */
     public function Subscribe(string $event, callable $callback) : void;
-    public function Publish(string $event, TidalConnection|null $connection = null, object|null $data = null) : void;
-    public function SendToAll(string $event, object|null $data = null) : void;
-    public function SendToUsersWithPermission(string $permission, string $event, object|null $data = null) : void;
-    public function SendToUsersWithTokenReference(string $reference, string $event, object|null $data = null) : void;
-    public function SendToUser(User $user, string $event, object|null $data = null) : void;
-    public function SendToUserId(Uuid $user, string $event, object|null $data = null) : void;
-    public function SendToClient(string $token, string $event, object|null $data = null) : void;
+    public function Publish(string $event, TidalConnection|null $connection = null, array|null $data = null) : void;
+    public function SendToAll(string $event, array|null $data = null) : void;
+    public function SendToUsersWithPermission(string $permission, string $event, array|null $data = null) : void;
+    public function SendToUsersWithTokenReference(string $reference, string $event, array|null $data = null) : void;
+    public function SendToUser(User $user, string $event, array|null $data = null) : void;
+    public function SendToUserId(Uuid $user, string $event, array|null $data = null) : void;
+    public function SendToClient(string $token, string $event, array|null $data = null) : void;
 }
