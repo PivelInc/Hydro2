@@ -118,4 +118,30 @@ class LineString extends Geometry
 
         return $lineString;
     }
+
+    public function ContainsPoint(Point $point): bool
+    {
+        // only valid for closed LineStrings (where the first and last points are the same)
+        if (count($this->Points) < 4 || $this->Points[0] != $this->Points[count($this->Points) - 1]) {
+            return false;
+        }
+
+        // check if point is inside the polygon formed by the closed LineString using ray-casting algorithm
+        $inside = false;
+        $numPoints = count($this->Points);
+        for ($i = 0, $j = $numPoints - 1; $i < $numPoints; $j = $i++) {
+            $xi = $this->Points[$i]->X;
+            $yi = $this->Points[$i]->Y;
+            $xj = $this->Points[$j]->X;
+            $yj = $this->Points[$j]->Y;
+
+            $intersect = (($yi > $point->Y) != ($yj > $point->Y)) &&
+                ($point->X < ($xj - $xi) * ($point->Y - $yi) / ($yj - $yi) + $xi);
+            if ($intersect) {
+                $inside = !$inside;
+            }
+        }
+        
+        return $inside;
+    }
 }

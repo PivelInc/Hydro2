@@ -164,4 +164,21 @@ class Polygon extends Geometry
 
         return $polygon;
     }
+
+    public function ContainsPoint(Point $point): bool
+    {
+        // Check if the point is inside the exterior ring
+        if (!isset($this->ExteriorRings[0]) || !$this->ExteriorRings[0]->ContainsPoint($point)) {
+            return false;
+        }
+
+        // Check if the point is inside any of the interior rings (holes)
+        foreach ($this->InteriorRings as $interiorRing) {
+            if ($interiorRing->ContainsPoint($point)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }
