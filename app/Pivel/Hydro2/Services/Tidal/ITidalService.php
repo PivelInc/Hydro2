@@ -8,7 +8,8 @@ use Pivel\Hydro2\Models\Uuid;
 
 interface ITidalService
 {
-    public function CreateToken(DateTime $expires, User $user, string|null $reference = null): TidalToken;
+    public function PublishRemoteEvent(string $event, array|null $data = null): bool;
+    public function CreateToken(DateTime $expires, ?User $user, string|null $reference = null): TidalToken;
     public function GetTokenByValue(string $token): TidalToken|null;
     public function GetTokensByUserId(Uuid $userId): array;
     public function GetTokensByReference(string $reference): array;

@@ -46,7 +46,102 @@ class TidalService implements ITidalService
         $this->_tokenRepository = $this->_entityService->GetRepository(TidalToken::class);
     }
 
-    public function CreateToken(DateTime $expires, User $user, string|null $reference = null): TidalToken {
+    public function PublishRemoteEvent(string $event, array|null $data = null): bool
+    {
+        if (!$this->IsTidalRunning()) {
+            $this->_logger->Warn(self::LOG_PACKAGE_NAME, "Cannot publish event '{$event}' because Tidal service is not running.");
+            return false;
+        }
+
+        // this method is used by controllers during regular HTTP requests, so the Tidal server is not available here.
+        // process:
+        // 1. generate a new token
+        // 2. initiate a client connection to the websocket
+        // 3. complete the handshake process
+        // 4. send the token and event data to the websocket
+        // 5. close the client connection
+
+        $token = $this->CreateToken(new DateTime('+1 minute'), null, 'tidal_publish_event');
+
+        $tidalServerAddress = "ws://localhost:8080";
+        $address = parse_url($tidalServerAddress);
+        if ($address === false || !isset($address['host'])) {
+            $this->_logger->Error(self::LOG_PACKAGE_NAME, "Invalid Tidal server address: {$tidalServerAddress}");
+            return false;
+        }
+
+        $host = $address['host'];
+        $port = $address['port'] ?? 80;
+        $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+        if ($socket === false || !socket_connect($socket, $host, $port)) {
+            $this->_logger->Error(self::LOG_PACKAGE_NAME, "Unable to connect to Tidal server at {$tidalServerAddress}");
+            if ($socket !== false) {
+                socket_close($socket);
+            }
+            return false;
+        }
+
+        try {
+            $webSocketKey = base64_encode(random_bytes(16));
+            $handshake = "GET / HTTP/1.1\r\n"
+                . "Host: {$host}:{$port}\r\n"
+                . "Upgrade: websocket\r\n"
+                . "Connection: Upgrade\r\n"
+                . "Sec-WebSocket-Key: {$webSocketKey}\r\n"
+                . "Sec-WebSocket-Version: 13\r\n\r\n";
+            socket_write($socket, $handshake, strlen($handshake));
+
+            $response = '';
+            while (!str_contains($response, "\r\n\r\n")) {
+                $chunk = socket_read($socket, 2048);
+                if ($chunk === false || $chunk === '') {
+                    throw new \RuntimeException('Tidal handshake response was empty.');
+                }
+                $response .= $chunk;
+            }
+
+            $expectedAccept = base64_encode(hex2bin(sha1(
+                $webSocketKey . '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
+            )));
+            if (!str_starts_with($response, 'HTTP/1.1 101')
+                || !preg_match('/\r\nSec-WebSocket-Accept:\s*([^\r\n]+)/i', $response, $matches)
+                || trim($matches[1]) !== $expectedAccept
+            ) {
+                throw new \RuntimeException('Tidal websocket handshake failed.');
+            }
+
+            $message = json_encode([
+                'token' => $token->token,
+                'event' => $event,
+                'data' => $data,
+            ], JSON_THROW_ON_ERROR);
+            $mask = random_bytes(4);
+            $maskedMessage = '';
+            for ($index = 0, $length = strlen($message); $index < $length; $index++) {
+                $maskedMessage .= $message[$index] ^ $mask[$index % 4];
+            }
+
+            $length = strlen($maskedMessage);
+            if ($length < 126) {
+                $frame = chr(0x81) . chr(0x80 | $length);
+            } elseif ($length <= 65535) {
+                $frame = chr(0x81) . chr(0xFE) . pack('n', $length);
+            } else {
+                throw new \RuntimeException('Tidal message is too large.');
+            }
+            socket_write($socket, $frame . $mask . $maskedMessage);
+            socket_write($socket, "\x88\x80\x00\x00\x00\x00");
+            return true;
+        } catch (\Throwable $exception) {
+            $this->_logger->Error(self::LOG_PACKAGE_NAME, "Unable to publish Tidal event '{$event}': " . $exception->getMessage());
+            return false;
+        } finally {
+            socket_close($socket);
+        }
+
+    }
+
+    public function CreateToken(DateTime $expires, ?User $user, string|null $reference = null): TidalToken {
         $token = bin2hex(random_bytes(32));
         $tidalToken = new TidalToken($token, $expires, $user, $reference);
         $this->_tokenRepository->Create($tidalToken);
