@@ -449,7 +449,7 @@ var H = {
             this._events[event] = this._events[event].filter(cb => cb !== callback);
         }
 
-        static Connect(token, host=null, port=8080) {
+        static Connect(token, host=null, port=443) {
             if (this._tidal != null && this._tidal.isConnected) {
                 return;
             }
