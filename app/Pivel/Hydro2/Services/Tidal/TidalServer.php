@@ -464,6 +464,7 @@ class TidalServer implements ITidalServer
             $handshakeResponse = "HTTP/1.1 400 Bad Request";
         }
         if (!isset($headers['sec-websocket-version']) || strtolower($headers['sec-websocket-version']) != 13) {
+            echo "Client requested WebSocket version {$headers['sec-websocket-version']}, but only version 13 is supported.\n";
             $handshakeResponse = "HTTP/1.1 426 Upgrade Required\r\nSec-WebSocketVersion: 13";
         }
         if (isset($headers['sec-websocket-protocol']) && !$this->checkWebsocProtocol($headers['sec-websocket-protocol'])) {
