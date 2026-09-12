@@ -60,11 +60,18 @@ class SessionController extends BaseController
         if ($this->_identityService->GetSessionFromRequest($this->request) !== null) {
             $session = $this->_identityService->GetSessionFromRequest($this->request);
             $user = $session->GetUser();
+            $tidal_token = null;
+            if ($this->_tidalService->IsTidalRunning()) {
+                $tidal_token = $this->_tidalService->CreateToken($session->ExpireTime, $user)->token;
+            }
+            // set token cookie
+            setcookie('tidal_token', $tidal_token, $session->ExpireTime->getTimestamp(), '/', '', true, false);
             return new JsonResponse(
                 [
                     'authenticated' => true,
                     'challenge_required' => ($user->GetUserRole()->ChallengeIntervalMinutes>0),
                     'password_change_required' => $user->IsPasswordChangeRequired(),
+                    'tidal_token' => $tidal_token,
                 ],
                 status: StatusCode::OK,
             );
@@ -156,6 +163,7 @@ class SessionController extends BaseController
             $tidal_token = $this->_tidalService->CreateToken($session->ExpireTime, $user)->token;
         }
 
+        setcookie('tidal_token', $tidal_token, $session->ExpireTime->getTimestamp(), '/', '', true, false);
         return new JsonResponse(
             [
                 'authenticated' => true,

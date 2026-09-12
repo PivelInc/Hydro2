@@ -303,7 +303,7 @@ var H = {
                 console.log('WebSocket - status '+this._socket.readyState);
                 this._socket.onopen = this.onSocketOpen.bind(this);
                 this._socket.onmessage = this.onSocketMessageReceived.bind(this);
-                this._socket.onclose = this.onClose.bind(this);
+                this._socket.onclose = this.onSocketClose.bind(this);
             }
             catch(ex){
                 console.log(ex); 
@@ -313,12 +313,14 @@ var H = {
         onSocketOpen() {
             this.isConnected = true;
             console.log("Welcome - status "+this._socket.readyState);
+            this.emit("connected");
         };
 
         onSocketClose() {
             this.isConnected = false;
             console.log("Disconnected - status "+this._socket.readyState);
             this._socket = null;
+            this.emit("disconnected");
         }
 
         onSocketMessageReceived(msg) {
@@ -404,7 +406,50 @@ var H = {
             this._socket.send(JSON.stringify(msg));
         }
 
-        static Connect(host=null, port=8080) {
+        _events = {};
+
+        /**
+         * Emit an event to any registered listeners.
+         * @param {string} event 
+         * @param  {...any} payload
+         */
+        emit(event, ...payload) {
+            if (!this._events[event]) {
+                return;
+            }
+
+            this._events[event].forEach(callback => {
+                setTimeout(() => callback(...payload), 0); // Call asynchronously
+            });
+        }
+
+        /**
+         * Register an event listener.
+         * @param {string} event 
+         * @param {function} callback 
+         */
+        on(event, callback) {
+            if (!this._events[event]) {
+                this._events[event] = [];
+            }
+
+            this._events[event].push(callback);
+        }
+
+        /**
+         * Remove an event listener.
+         * @param {string} event 
+         * @param {function} callback
+         */
+        off(event, callback) {
+            if (!this._events[event]) {
+                return;
+            }
+
+            this._events[event] = this._events[event].filter(cb => cb !== callback);
+        }
+
+        static Connect(token, host=null, port=8080) {
             if (this._tidal != null && this._tidal.isConnected) {
                 return;
             }
@@ -415,6 +460,22 @@ var H = {
             }
 
             this._tidal = new H.Tidal(host, port);
+
+            this._tidal.on("connected", () => {
+                console.log("Tidal connected");
+                this._tidal._socket.send(JSON.stringify({ 'token': token }));
+                this._tidal.emit("ready");
+            });
+        }
+
+        static Disconnect() {
+            if (this._tidal == null) {
+                return;
+            }
+
+            this._tidal._socket.close();
+            this._tidal.isConnected = false;
+            this._tidal = null;
         }
 
         static AddHandler(event, onReceived) {
