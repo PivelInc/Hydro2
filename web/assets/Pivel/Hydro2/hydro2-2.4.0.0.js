@@ -324,8 +324,6 @@ var H = {
         }
 
         onSocketMessageReceived(msg) {
-            console.log("Received: "+msg.data);
-
             // json decode msg.data, if failure log to console and return
             try {
                 var data = JSON.parse(msg.data);
