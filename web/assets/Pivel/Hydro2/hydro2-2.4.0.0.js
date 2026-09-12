@@ -299,7 +299,7 @@ var H = {
             this._host = host;
             this._port = port;
             try {
-                this._socket = new WebSocket("ws://" + host + ":" + port);
+                this._socket = new WebSocket("wss://" + host + ":" + port + "/ws");
                 console.log('WebSocket - status '+this._socket.readyState);
                 this._socket.onopen = this.onSocketOpen.bind(this);
                 this._socket.onmessage = this.onSocketMessageReceived.bind(this);
