@@ -7,3 +7,4 @@ app/persistenceprofiles.json
 tools/
 .phpunit.cache/
 *.bak
+app/Pivel/Hydro2/Services/Tidal/tidal_server_running.lock

@@ -266,6 +266,14 @@ class Hydro2
         return $response;
     }
 
+    public function OnSignal(int $signal, callable $handler) : void
+    {
+        if (function_exists('pcntl_async_signals')) {
+            pcntl_async_signals(true);
+            pcntl_signal($signal, $handler);
+        }
+    }
+
     public function Run() : self
     {
         // Process incoming request

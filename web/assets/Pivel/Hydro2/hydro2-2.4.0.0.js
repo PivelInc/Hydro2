@@ -284,6 +284,245 @@ var H = {
         }
     },
 
+    Tidal: class {
+        static _tidal = null;
+        _host = null;
+        _port = null;
+        _socket = null;
+        isConnected = false;
+        /**
+         * @var {H.TidalHandler[]} _handlers
+         */
+        _handlers = [];
+        _subscriptions = [];
+        constructor(host, port) {
+            this._host = host;
+            this._port = port;
+            try {
+                this._socket = new WebSocket("ws://" + host + ":" + port);
+                console.log('WebSocket - status '+this._socket.readyState);
+                this._socket.onopen = this.onSocketOpen.bind(this);
+                this._socket.onmessage = this.onSocketMessageReceived.bind(this);
+                this._socket.onclose = this.onSocketClose.bind(this);
+            }
+            catch(ex){
+                console.log(ex); 
+            }
+        }
+
+        onSocketOpen() {
+            this.isConnected = true;
+            console.log("Welcome - status "+this._socket.readyState);
+            this.emit("connected");
+        };
+
+        onSocketClose() {
+            this.isConnected = false;
+            console.log("Disconnected - status "+this._socket.readyState);
+            this._socket = null;
+            this.emit("disconnected");
+        }
+
+        onSocketMessageReceived(msg) {
+            console.log("Received: "+msg.data);
+
+            // json decode msg.data, if failure log to console and return
+            try {
+                var data = JSON.parse(msg.data);
+            } catch (ex) {
+                console.error(ex);
+                return;
+            }
+
+            // check if data has "event" property, if not log to console and return
+            if (!("event" in data)) {
+                console.error("Received message without event property");
+                console.log(data);
+                return;
+            }
+
+            // check if there are any handlers for this event, and if so, call their onReceived callback with the data
+            var subs = this._handlers.filter(sub => sub.event == data.event);
+            for (var sub of subs) {
+                try {
+                    sub.onReceived(data);
+                } catch (ex) {
+                    console.error(ex);
+                }
+            }
+        }
+
+        publishEvent(event, data) {
+            if (!this.isConnected) {
+                console.error("Tidal is not connected");
+                return;
+            }
+
+            var msg = {
+                event: event,
+                data: data
+            };
+
+            this._socket.send(JSON.stringify(msg));
+        }
+
+        subscribeEvent(event) {
+            if (!this.isConnected) {
+                console.error("Tidal is not connected");
+                return;
+            }
+
+            if (this._subscriptions.includes(event)) {``
+                return;
+            }
+
+            // {'subscribe': ['event1', 'event2']}
+            var msg = {
+                'subscribe': [event]
+            };
+
+            this._socket.send(JSON.stringify(msg));
+            this._subscriptions.push(event);
+        }
+
+        cleanSubscriptions() {
+            if (!this.isConnected) {
+                console.error("Tidal is not connected");
+                return;
+            }
+
+            // {'unsubscribe': ['event1', 'event2']}
+            var msg = {
+                'unsubscribe': []
+            };
+
+            for (var event of this._subscriptions) {
+                // if event is not in any of the handlers, add it to unsub message
+                if (!this._handlers.some(sub => sub.event == event)) {
+                    msg['unsubscribe'].push(event);
+                }
+            }
+
+            this._socket.send(JSON.stringify(msg));
+        }
+
+        _events = {};
+
+        /**
+         * Emit an event to any registered listeners.
+         * @param {string} event 
+         * @param  {...any} payload
+         */
+        emit(event, ...payload) {
+            if (!this._events[event]) {
+                return;
+            }
+
+            this._events[event].forEach(callback => {
+                setTimeout(() => callback(...payload), 0); // Call asynchronously
+            });
+        }
+
+        /**
+         * Register an event listener.
+         * @param {string} event 
+         * @param {function} callback 
+         */
+        on(event, callback) {
+            if (!this._events[event]) {
+                this._events[event] = [];
+            }
+
+            this._events[event].push(callback);
+        }
+
+        /**
+         * Remove an event listener.
+         * @param {string} event 
+         * @param {function} callback
+         */
+        off(event, callback) {
+            if (!this._events[event]) {
+                return;
+            }
+
+            this._events[event] = this._events[event].filter(cb => cb !== callback);
+        }
+
+        static Connect(token, host=null, port=8080) {
+            if (this._tidal != null && this._tidal.isConnected) {
+                return;
+            }
+            
+            // if host is null, use window.location.hostname
+            if (host == null) {
+                host = window.location.hostname;
+            }
+
+            this._tidal = new H.Tidal(host, port);
+
+            this._tidal.on("connected", () => {
+                console.log("Tidal connected");
+                this._tidal._socket.send(JSON.stringify({ 'token': token }));
+                this._tidal.emit("ready");
+            });
+        }
+
+        static Disconnect() {
+            if (this._tidal == null) {
+                return;
+            }
+
+            this._tidal._socket.close();
+            this._tidal.isConnected = false;
+            this._tidal = null;
+        }
+
+        static AddHandler(event, onReceived) {
+            if (this._tidal == null) {
+                console.error("Tidal is not initialized");
+                return null;
+            }
+
+            var handler = new H.TidalHandler(event, onReceived);
+            this._tidal._handlers.push(handler);
+            this._tidal.subscribeEvent(event);
+            return handler;
+        }
+
+        static RemoveHandler(handler) {
+            if (this._tidal == null) {
+                console.error("Tidal is not initialized");
+                return;
+            }
+
+            var index = this._tidal._handlers.indexOf(handler);
+            if (index > -1) {
+                this._tidal._handlers.splice(index, 1);
+            }
+
+            this._tidal.cleanSubscriptions();
+        }
+
+        static Publish(event, data) {
+            if (this._tidal == null) {
+                console.error("Tidal is not initialized");
+                return;
+            }
+
+            this._tidal.publishEvent(event, data);
+        }
+    },
+
+    TidalHandler: class {
+        event;
+        onReceived;
+        constructor(event, onReceived) {
+            this.event = event;
+            this.onReceived = onReceived;
+        }
+    },
+
     StatusCode: {
         Continue: 100,
         SwitchingProtocols: 101,

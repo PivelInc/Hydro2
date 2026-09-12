@@ -7,13 +7,17 @@ use Pivel\Hydro2\Extensions\RequireStyle;
 use Pivel\Hydro2\Hydro2;
 use ReflectionClass;
 
-#[RequireScript('/assets/Pivel/Hydro2/hydro2-2.3.1.0.js', Inline: false)]
-#[RequireStyle('/assets/Pivel/Hydro2/hydro2-2.3.1.0.css', Inline: false)]
+#[RequireScript('/assets/Pivel/Hydro2/hydro2-2.4.0.0.js', Inline: false)]
+#[RequireScript('/h2_modules/Pivel/Hydro2/H2View.js', IsModule: true, Inline: false)]
+#[RequireStyle('/assets/Pivel/Hydro2/hydro2-2.4.0.0.css', Inline: false)]
 class BaseWebView extends BaseView
 {
     protected $Scripts = '';
     protected $Styles = '';
 
+    /**
+     * @var RequireScript[] $RequiredScripts
+     */
     protected $RequiredScripts = [];
     protected $RequiredStyles = [];
 
@@ -61,7 +65,9 @@ class BaseWebView extends BaseView
                 if ($instance->Inline && file_exists($dir . '/' . $instance->Path)) {
                     $instance->Path = $dir . '/' . $instance->Path;
                 }
-                $this->RequiredScripts[$instance->Path] = ($this->RequiredScripts[$instance->Path] ?? false) || $instance->Inline;
+                if (!isset($this->RequiredScripts[$instance->Path])) {
+                    $this->RequiredScripts[$instance->Path] = $instance;
+                }
             }
             foreach ($styleAttributes as $a) {
                 /** @var RequireStyle */
@@ -69,7 +75,7 @@ class BaseWebView extends BaseView
                 if ($instance->Inline && file_exists($dir . '/' . $instance->Path)) {
                     $instance->Path = $dir . '/' . $instance->Path;
                 }
-                $this->RequiredStyles[$instance->Path] = ($this->RequiredScripts[$instance->Path] ?? false) || $instance->Inline;
+                $this->RequiredStyles[$instance->Path] = ($this->RequiredStyles[$instance->Path] ?? false) || $instance->Inline;
             }
         }
 
@@ -78,8 +84,13 @@ class BaseWebView extends BaseView
         $this->Scripts = '';
         $this->Styles = '';
         // compile scripts and styles
-        foreach ($this->RequiredScripts as $path => $inline) {
-            if (!$inline) {
+        foreach ($this->RequiredScripts as $path => $script) {
+            if ($script->IsModule) {
+                $this->Scripts .= "<script type=\"module\" src=\"{$path}\"></script>\n";
+                continue;
+            }
+
+            if (!$script->Inline) {
                 //echo 'hi';
                 $this->Scripts .= "<script src=\"{$path}\"></script>\n";
                 continue;

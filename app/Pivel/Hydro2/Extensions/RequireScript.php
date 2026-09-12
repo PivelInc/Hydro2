@@ -9,7 +9,8 @@ class RequireScript
 {
     public function __construct(
         public string $Path,
-        public bool $Inline=true
+        public bool $Inline=true,
+        public bool $IsModule=false,
     ) {
     }
 }

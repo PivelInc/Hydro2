@@ -93,6 +93,11 @@ class LoginCard extends MultiPageCard {
             //    'password_change_required' => $userPassword->IsExpired(),
             //],
             if (result["authenticated"]) {
+                if (result["tidal_token"]) {
+                    // store in cookie using plain js
+                    console.log("Setting tidal_token cookie:", result["tidal_token"]);
+                    document.cookie = "tidal_token=" + result["tidal_token"] + "; path=/; samesite=strict";
+                }
                 if (result["password_change_required"]) {
                     this.NavigateTo("changepassword");
                 } else {

@@ -2,8 +2,8 @@
     "name":"Hydro2",
     "vendor":"Pivel",
     "description":"Hydro2 Core framework",
-    "version":[2, 3, 1, 0],
-    "release_date":"2026-09-08",
+    "version":[2, 4, 0, 0],
+    "release_date":"2026-09-11",
     "author": {
         "name":"Thomas Boland",
         "email":"thomas@tbcsvcs.ca",
@@ -14,8 +14,8 @@
         ".htaccess",
         "index.php",
         "robots.txt",
-        "assets/Pivel/Hydro2/hydro2-2.3.1.0.css",
-        "assets/Pivel/Hydro2/hydro2-2.3.1.0.js"
+        "assets/Pivel/Hydro2/hydro2-2.4.0.0.css",
+        "assets/Pivel/Hydro2/hydro2-2.4.0.0.js"
     ],
 
     "dependencies": [
@@ -28,7 +28,8 @@
         "Pivel\\Hydro2\\Controllers\\UserController",
         "Pivel\\Hydro2\\Controllers\\UserRoleController",
         "Pivel\\Hydro2\\Controllers\\SessionController",
-        "Pivel\\Hydro2\\Controllers\\AdminPanelController"
+        "Pivel\\Hydro2\\Controllers\\AdminPanelController",
+        "Pivel\\Hydro2\\Controllers\\TidalController"
     ],
 
     "singletons": [
@@ -37,7 +38,8 @@
         {"class":"Pivel\\Hydro2\\Services\\IdentityService"},
         {"class":"Pivel\\Hydro2\\Services\\UserNotificationService"},
         {"class":"Pivel\\Hydro2\\Services\\Database\\DatabaseService"},
-        {"class":"Pivel\\Hydro2\\Services\\Email\\EmailService"}
+        {"class":"Pivel\\Hydro2\\Services\\Email\\EmailService"},
+        {"class":"Pivel\\Hydro2\\Services\\Tidal\\TidalService","interface":"Pivel\\Hydro2\\Services\\Tidal\\ITidalService"}
     ],
 
     "persistence_providers": [
