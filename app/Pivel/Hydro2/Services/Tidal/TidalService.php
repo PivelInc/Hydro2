@@ -215,7 +215,7 @@ class TidalService implements ITidalService
         $this->_app->OnSignal(2, function() {
             echo "SIGINT received. Stopping Tidal service...\n";
             $this->_logger->Info(self::LOG_PACKAGE_NAME, "SIGINT received. Stopping Tidal service...");
-            $this->server->Stop();
+            TidalServer::Stop();
         });
 
         // register all Tidal subscriptions
