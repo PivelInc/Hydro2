@@ -14,6 +14,8 @@ class TidalConnection
     public bool $isHandshakeComplete = false;
     public bool $isAuthenticated = false;
     public string $buffer = '';
+    public string $handshakeBuffer = '';
+    public string $receiveBuffer = '';
     /** @var string[] */
     public array $subscriptions = [];
     public string $address = '';
