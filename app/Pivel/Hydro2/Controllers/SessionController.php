@@ -163,7 +163,9 @@ class SessionController extends BaseController
             $tidal_token = $this->_tidalService->CreateToken($session->ExpireTime, $user)->token;
         }
 
-        setcookie('tidal_token', $tidal_token, $session->ExpireTime->getTimestamp(), '/', '', true, false);
+        if ($tidal_token !== null) {
+            setcookie('tidal_token', $tidal_token, $session->ExpireTime->getTimestamp(), '/', '', true, false);
+        }
         return new JsonResponse(
             [
                 'authenticated' => true,

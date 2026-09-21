@@ -2,6 +2,7 @@
 
 namespace Pivel\Hydro2\Services\Tidal;
 
+use Exception;
 use Override;
 use Pivel\Hydro2\Hydro2;
 use Pivel\Hydro2\Models\Identity\User;
@@ -269,16 +270,26 @@ class TidalServer implements ITidalServer
                 // add buffer to connection's buffer
                 // if buffer contains a complete message, process it
                 if (!$connection->isHandshakeComplete) {
-                    $tmp = str_replace("\r", "", $buffer);
-                    if (strpos($tmp, "\n\n") === false) {
+                    $connection->handshakeBuffer .= substr($buffer, 0, $n);
+                    $handshakeEnd = strpos($connection->handshakeBuffer, "\r\n\r\n");
+                    if ($handshakeEnd === false) {
                         continue;
                     }
 
-                    $this->doHandshake($connection, $buffer);
+                    $handshakeLength = $handshakeEnd + 4;
+                    $handshake = substr($connection->handshakeBuffer, 0, $handshakeLength);
+                    $connection->receiveBuffer = substr($connection->handshakeBuffer, $handshakeLength);
+                    $connection->handshakeBuffer = '';
+                    $this->doHandshake($connection, $handshake);
+                    if (!$connection->isHandshakeComplete) {
+                        continue;
+                    }
+                    $this->splitPacket($connection);
                     continue;
                 }
 
-                $this->splitPacket($n, $buffer, $connection);
+                $connection->receiveBuffer .= substr($buffer, 0, $n);
+                $this->splitPacket($connection);
             }
         }
     }
@@ -290,6 +301,7 @@ class TidalServer implements ITidalServer
         $messageData = json_decode(trim($message), true);
         if (json_last_error() !== JSON_ERROR_NONE) {
             echo "Failed to decode JSON message from user {$connection->id}: " . json_last_error_msg() . "\n";
+            echo "message: $message\n";
             $this->_logger->Error("TidalServer", "Failed to decode JSON message from user {$connection->id}: " . json_last_error_msg());
             $this->send($connection, json_encode(['error' => 'Invalid JSON message']));
             return;
@@ -303,12 +315,18 @@ class TidalServer implements ITidalServer
             }
 
             // validate token and get user if there is one associated
-            $token = $this->_tidalService->GetTokenByValue($messageData['token']);
-            if (!$token) {
-                $this->send($connection, json_encode(['error' => 'Invalid token']));
+            try {
+                $token = $this->_tidalService->GetTokenByValue($messageData['token']);
+                if (!$token) {
+                    $this->send($connection, json_encode(['error' => 'Invalid token']));
+                    return;
+                }
+            } catch (Exception $e) {
+                $this->send($connection, json_encode(['error' => 'Error occurred while validating token']));
                 return;
             }
 
+            echo "Connection {$connection->id} authenticated with token {$token->token}.\n";
             $connection->token = $token;
             $connection->user = $token->user;
             $connection->isAuthenticated = true;
@@ -538,42 +556,32 @@ class TidalServer implements ITidalServer
         return ""; // return either "Sec-WebSocket-Extensions: SelectedExtensions\r\n" or return an empty string.
     }
 
-    private function splitPacket(int $length, string $packet, TidalConnection $connection)
+    private function splitPacket(TidalConnection $connection): void
     {
-        //add PartialPacket and calculate the new $length
-        if ($connection->handlingPartialPacket) {
-            $packet = $connection->buffer . $packet;
-            $connection->handlingPartialPacket = false;
-            $length = strlen($packet);
-        }
-        $fullpacket = $packet;
-        $frame_pos = 0;
-        $frame_id = 1;
-
-        while ($frame_pos < $length) {
-            $headers = $this->extractHeaders($packet);
+        while (strlen($connection->receiveBuffer) >= 2) {
+            $headers = $this->extractHeaders($connection->receiveBuffer);
             $headers_size = $this->calcoffset($headers);
             $framesize = $headers['length'] + $headers_size;
 
-            //split frame from packet and process it
-            $frame = substr($fullpacket, $frame_pos, $framesize);
+            if (strlen($connection->receiveBuffer) < $framesize) {
+                return;
+            }
 
-            if (($message = $this->deframe($frame, $connection)) !== FALSE) {
-                if ($connection->hasSentClose) {
-                    $this->disconnectClient($connection->socket);
+            $frame = substr($connection->receiveBuffer, 0, $framesize);
+            $connection->receiveBuffer = substr($connection->receiveBuffer, $framesize);
+
+            $message = $this->deframe($frame, $connection);
+            if ($connection->hasSentClose) {
+                $this->disconnectClient($connection->socket);
+                return;
+            } elseif ($message !== false && $message !== "") {
+                if ((preg_match('//u', $message)) || ($headers['opcode'] == 2)) {
+                    //$this->stdout("Text msg encoded UTF-8 or Binary msg\n".$message); 
+                    $this->process($connection, $message);
                 } else {
-                    if ((preg_match('//u', $message)) || ($headers['opcode'] == 2)) {
-                        //$this->stdout("Text msg encoded UTF-8 or Binary msg\n".$message); 
-                        $this->process($connection, $message);
-                    } else {
-                        $this->_logger->Warn("TidalServer", "Text msg not encoded UTF-8");
-                    }
+                    $this->_logger->Warn("TidalServer", "Text msg not encoded UTF-8");
                 }
             }
-            //get the new position also modify packet data
-            $frame_pos += $framesize;
-            $packet = substr($fullpacket, $frame_pos);
-            $frame_id++;
         }
     }
 
@@ -683,9 +691,8 @@ class TidalServer implements ITidalServer
             case 2:
                 break;
             case 8:
-                // todo: close the connection
                 $connection->hasSentClose = true;
-                return "";
+                return false;
             case 9:
                 $pongReply = true;
             case 10:

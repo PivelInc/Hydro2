@@ -306,7 +306,7 @@ var H = {
                 this._socket.onclose = this.onSocketClose.bind(this);
             }
             catch(ex){
-                console.log(ex); 
+                console.log(ex);
             }
         }
 

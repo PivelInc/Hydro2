@@ -157,6 +157,8 @@ class TidalService implements ITidalService
         }
 
         if ($tokens[0]->expires < new DateTime()) {
+            // delete expired token
+            $this->_tokenRepository->Delete($tokens[0]);
             return null;
         }
 
@@ -172,12 +174,15 @@ class TidalService implements ITidalService
             if ($token->expires >= new DateTime()) {
                 $validTokens[] = $token;
             }
+            else {
+                // delete expired tokens
+                $this->_tokenRepository->Delete($token);
+            }
         }
 
         return $validTokens;
     }
 
-    #[Override]
     public function GetTokensByReference(string $reference): array
     {
         $query = (new Query())->Equal('reference', $reference);
@@ -187,10 +192,22 @@ class TidalService implements ITidalService
         foreach ($tokens as $token) {
             if ($token->expires >= new DateTime()) {
                 $validTokens[] = $token;
+            } else {
+                // delete expired tokens
+                $this->_tokenRepository->Delete($token);
             }
         }
 
         return $validTokens;
+    }
+
+    public function DeleteTokensByReference(string $reference): void
+    {
+        $tokens = $this->GetTokensByReference($reference);
+
+        foreach ($tokens as $token) {
+            $this->_tokenRepository->Delete($token);
+        }
     }
 
     public function IsTidalRunning() : bool {
