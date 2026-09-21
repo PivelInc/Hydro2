@@ -382,6 +382,10 @@ class SqlitePersistenceProvider implements IEntityPersistenceProvider
             return $value->ToWKT();
         }
 
+        if ($field->PropertyType == 'array' && $sqlType == "TEXT") {
+            return json_encode($value);
+        }
+
         return $value;
     }
 
@@ -403,6 +407,18 @@ class SqlitePersistenceProvider implements IEntityPersistenceProvider
         if (is_subclass_of($field->PropertyType, Geometry::class)) {
             /** @var Geometry $value */
             return ($field->PropertyType)::FromWKT($value);
+        }
+
+        if ($field->PropertyType == 'array' && $sqlType == "TEXT") {
+            try {
+                $decoded = json_decode($value, true);
+                if (is_array($decoded)) {
+                    return $decoded;
+                }
+            } catch (Exception) {
+                // ignore
+                return null;
+            }
         }
 
         return $value;
@@ -432,6 +448,7 @@ class SqlitePersistenceProvider implements IEntityPersistenceProvider
                 break;
             case 'mixed':
             case 'string':
+            case 'array':
             default:
                 $sqlType = "TEXT";
         }

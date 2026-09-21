@@ -4,6 +4,7 @@ namespace Pivel\Hydro2\Services\Entity;
 
 use DateTime;
 use DateTimeZone;
+use Exception;
 use PDO;
 use PDOException;
 use Pivel\Hydro2\Exceptions\Database\HostNotFoundException;
@@ -494,6 +495,10 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
             return "ST_GeomFromText('" . $value->ToWKT() . "'," . $value->SRID . ")";
         }
 
+        if ($field->PropertyType == 'array' && $sqlType == "TEXT") {
+            return json_encode($value);
+        }
+
         return $value;
     }
 
@@ -515,6 +520,18 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
         if (is_subclass_of($field->PropertyType, Geometry::class)) {
             /** @var Geometry $value */
             return ($field->PropertyType)::FromWKB($value);
+        }
+
+        if ($field->PropertyType == 'array' && $sqlType == "TEXT") {
+            try {
+                $decoded = json_decode($value, true);
+                if (is_array($decoded)) {
+                    return $decoded;
+                }
+            } catch (Exception) {
+                // ignore
+                return null;
+            }
         }
 
         return $value;
@@ -544,6 +561,7 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
                 break;
             case 'mixed':
             case 'string':
+            case 'array':
             default:
                 $sqlType = "TEXT";
         }
