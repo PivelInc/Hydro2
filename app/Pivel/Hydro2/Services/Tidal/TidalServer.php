@@ -2,6 +2,7 @@
 
 namespace Pivel\Hydro2\Services\Tidal;
 
+use Exception;
 use Override;
 use Pivel\Hydro2\Hydro2;
 use Pivel\Hydro2\Models\Identity\User;
@@ -314,9 +315,14 @@ class TidalServer implements ITidalServer
             }
 
             // validate token and get user if there is one associated
-            $token = $this->_tidalService->GetTokenByValue($messageData['token']);
-            if (!$token) {
-                $this->send($connection, json_encode(['error' => 'Invalid token']));
+            try {
+                $token = $this->_tidalService->GetTokenByValue($messageData['token']);
+                if (!$token) {
+                    $this->send($connection, json_encode(['error' => 'Invalid token']));
+                    return;
+                }
+            } catch (Exception $e) {
+                $this->send($connection, json_encode(['error' => 'Error occurred while validating token']));
                 return;
             }
 
