@@ -7,6 +7,7 @@ use DateTimeZone;
 use Exception;
 use PDO;
 use PDOException;
+use Pivel\Hydro2\Exceptions\Database\ConnectionEndedException;
 use Pivel\Hydro2\Exceptions\Database\HostNotFoundException;
 use Pivel\Hydro2\Exceptions\Database\InvalidUserException;
 use Pivel\Hydro2\Exceptions\Database\TableNotFoundException;
@@ -123,10 +124,18 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
                 }
                 $match = trim($matches[0], '`');
                 if ($match == '*') {
-                    $stmt = $this->pdo->prepare('SHOW DATABASES;');
-                    $stmt->execute();
-                    $dbs = $stmt->fetchAll();
-                    return array_map(fn($d)=>$d['Database'],$dbs);
+                    try {
+                        $stmt = $this->pdo->prepare('SHOW DATABASES;');
+                        $stmt->execute();
+                        $dbs = $stmt->fetchAll();
+                        return array_map(fn($d)=>$d['Database'],$dbs);
+                    } catch (PDOException $e) {
+                        if (self::isDisconnect($e)) {
+                            $this->CloseConnection();
+                            throw new ConnectionEndedException("Lost connection to database server.", 0);
+                        }
+                        throw $e;
+                    }
                 }
                 array_push($dbsWithPrivileges, $match);
             }
@@ -144,18 +153,34 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
             return false;
         }
 
-        $stmt = $this->pdo->prepare("CREATE DATABASE IF NOT EXISTS {$schemaName};");
-        $stmt->execute();
+        try {
+            $stmt = $this->pdo->prepare("CREATE DATABASE IF NOT EXISTS {$schemaName};");
+            $stmt->execute();
+        } catch (PDOException $e) {
+            if (self::isDisconnect($e)) {
+                $this->CloseConnection();
+                throw new ConnectionEndedException("Lost connection to database server.", 0);
+            }
+            throw $e;
+        }
 
         return true;
     }
 
     /** @return string[] */
     private function GetUserGrants(?string $username=null) : array {
-        $stmt = $this->pdo->prepare('SHOW GRANTS FOR '.($username??'CURRENT_USER'));
-        $stmt->execute();
-        $grants = $stmt->fetchAll();
-        return array_map(fn($g)=>$g[0],$grants);
+        try {
+            $stmt = $this->pdo->prepare('SHOW GRANTS FOR '.($username??'CURRENT_USER'));
+            $stmt->execute();
+            $grants = $stmt->fetchAll();
+            return array_map(fn($g)=>$g[0],$grants);
+        } catch (PDOException $e) {
+            if (self::isDisconnect($e)) {
+                $this->CloseConnection();
+                throw new ConnectionEndedException("Lost connection to database server.", 0);
+            }
+            throw $e;
+        }
     }
 
     // Collection manipulation
@@ -165,10 +190,18 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
             return false;
         }
 
-        $stmt = $this->pdo->prepare("SELECT(IF(EXISTS(SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = :dbname AND TABLE_NAME = :tblname),1,0))");
-        $stmt->execute(['dbname'=>$this->database,'tblname'=>$collection->GetName()]);
-        $res = $stmt->fetchAll();
-        return $res[0][0] == 1;
+        try {
+            $stmt = $this->pdo->prepare("SELECT IF(EXISTS(SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = :dbname AND TABLE_NAME = :tblname),1,0) AS table_exists");
+            $stmt->execute(['dbname'=>$this->database,'tblname'=>$collection->GetName()]);
+            $res = $stmt->fetchAll();
+            return $res[0][0] == 1;
+        } catch (PDOException $e) {
+            if (self::isDisconnect($e)) {
+                $this->CloseConnection();
+                throw new ConnectionEndedException("Lost connection to database server.", 0);
+            }
+            throw $e;
+        }
     }
 
     public function CreateCollectionIfNotExists(EntityDefinition $collection) : bool
@@ -189,8 +222,16 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
             $columnStructureString .= ','.$constraintStructureString;
         }
 
-        $stmt = $this->pdo->prepare("CREATE TABLE IF NOT EXISTS `{$collection->GetName()}` ({$columnStructureString})");
-        $stmt->execute();
+        try {
+            $stmt = $this->pdo->prepare("CREATE TABLE IF NOT EXISTS `{$collection->GetName()}` ({$columnStructureString})");
+            $stmt->execute();
+        } catch (PDOException $e) {
+            if (self::isDisconnect($e)) {
+                $this->CloseConnection();
+                throw new ConnectionEndedException("Lost connection to database server.", 0);
+            }
+            throw $e;
+        }
 
         return true;
     }
@@ -214,13 +255,17 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
             $stmt->execute($queryParams);
             return $stmt->fetchAll();
         } catch (PDOException $e) {
+            if (self::isDisconnect($e)) {
+                $this->CloseConnection();
+                throw new ConnectionEndedException("Lost connection to database server.", 0);
+            }
+
             if ($e->errorInfo[0] == '42S02') {
                 throw new TableNotFoundException($e->getMessage(), 0);
             } else {
                 throw $e;
             }
         }
-        return [];
     }
 
     public function Count(EntityDefinition $collection, ?Query $query) : int
@@ -236,6 +281,11 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
             $stmt->execute($query==null?[]:$query->GetConvertedFilterParameters($this));
             return $stmt->fetchAll()[0][0];
         } catch (PDOException $e) {
+            if (self::isDisconnect($e)) {
+                $this->CloseConnection();
+                throw new ConnectionEndedException("Lost connection to database server.", 0);
+            }
+
             if ($e->errorInfo[0] == '42S02') {
                 throw new TableNotFoundException($e->getMessage(), 0);
             } else {
@@ -283,6 +333,11 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
             $stmt = $this->pdo->prepare($queryString);
             $stmt->execute($queryParams);
         } catch (PDOException $e) {
+            if (self::isDisconnect($e)) {
+                $this->CloseConnection();
+                throw new ConnectionEndedException("Lost connection to database server.", 0);
+            }
+
             if ($e->errorInfo[0] == '42S02') {
                 throw new TableNotFoundException($e->getMessage(), 0);
             } else {
@@ -335,6 +390,11 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
             $stmt = $this->pdo->prepare($queryString);
             $stmt->execute($queryParams);
         } catch (PDOException $e) {
+            if (self::isDisconnect($e)) {
+                $this->CloseConnection();
+                throw new ConnectionEndedException("Lost connection to database server.", 0);
+            }
+
             if ($e->errorInfo[0] == '42S02') {
                 throw new TableNotFoundException($e->getMessage(), 0);
             } else {
@@ -363,6 +423,11 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
             $stmt = $this->pdo->prepare("DELETE FROM " . $collection->GetName() . self::GetWhereStringFromQuery($query));
             $stmt->execute($query->GetConvertedFilterParameters($this));
         } catch (PDOException $e) {
+            if (self::isDisconnect($e)) {
+                $this->CloseConnection();
+                throw new ConnectionEndedException("Lost connection to database server.", 0);
+            }
+
             if ($e->errorInfo[0] == '42S02') {
                 throw new TableNotFoundException($e->getMessage(), 0);
             } else {
@@ -588,5 +653,29 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
         }
 
         return $sqlType;
+    }
+
+    private static function isDisconnect(PDOException $e) {
+        $errorInfo = $e->errorInfo;
+        $errorCode = $errorInfo[1] ?? null;
+
+        // Common MySQL disconnection error codes
+        $disconnectCodes = [
+            2006, // MySQL server has gone away
+            2013, // Lost connection to MySQL server during query
+            1047, // WSREP has not yet prepared node for application use
+        ];
+
+        if (in_array($errorCode, $disconnectCodes)) {
+            return true;
+        }
+
+        // Fallback: Check the exception message for specific text
+        $message = $e->getMessage();
+        if (str_contains($message, 'server has gone away') || str_contains($message, 'Lost connection')) {
+            return true;
+        }
+
+        return false;
     }
 }
