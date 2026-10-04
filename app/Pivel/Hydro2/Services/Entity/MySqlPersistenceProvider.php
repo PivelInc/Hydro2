@@ -320,13 +320,17 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
                 if (is_subclass_of($field->PropertyType, Geometry::class) && $fieldValuesExceptAutoIncrement[$k] !== null) {
                     // this field has been converted and contains statement/functions.
                     // include directly instead since can't bind statment elements
+                    // also remove the parameter from the query params since it won't be used.
                     /** @var Geometry $value */
-                    return $fieldValuesExceptAutoIncrement[$k];
+                    $value = $fieldValuesExceptAutoIncrement[$k];
+                    unset($fieldValuesExceptAutoIncrement[$k]);
+                    return $value;
                 }
                 return ':'.$k;
             },
             array_keys($fieldValuesExceptAutoIncrement),
         ));
+
         $queryString = "INSERT INTO `".$collection->GetName()."` (".$columnsString.") VALUES (".$valuePlaceholdersString.")";
         $queryParams = self::RemoveExtraParams($fieldValuesExceptAutoIncrement, $queryString);
         try {
@@ -377,8 +381,10 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
             if (is_subclass_of($field->PropertyType, Geometry::class) && $fieldValues[$k] !== null) {
                 // this field has been converted and contains statement/functions.
                 // include directly instead since can't bind statment elements
-                /** @var Geometry $value */
-                return '`'.$k.'`=' . $fieldValues[$k];
+                    /** @var Geometry $value */
+                $value = $fieldValues[$k];
+                unset($fieldValues[$k]);
+                return '`'.$k.'`=' . $value;
             }
             return '`' . $k . '`=:' . $k;
         },array_filter(array_keys($fieldValues),fn($k)=>$k!=$pkFieldName)));
@@ -410,7 +416,7 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
         if ($lastInsertId == 0) {
             return null;
         }
-        return $lastInsertId ? null : intval($lastInsertId);
+        return $lastInsertId ? intval($lastInsertId) : null;
     }
 
     public function Delete(EntityDefinition $collection, Query $query) : int
@@ -529,10 +535,10 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
     }
 
     private static function RemoveExtraParams(array $queryParams, string $queryString) : array {
-        // delete elements from queryParam if queryParam=>key is not contained in queryString
-        return array_filter($queryParams, function($k) use ($queryString) {
-            return strpos($queryString, ':' . $k) !== false;
+        $result = array_filter($queryParams, function($k) use ($queryString) {
+            return preg_match('/:' . preg_quote((string) $k, '/') . '(?=[,\)\s]|$)/', $queryString) === 1;
         }, ARRAY_FILTER_USE_KEY);
+        return $result;
     }
 
     public static function ConvertValueToStorage(EntityFieldDefinition $field, mixed $value): mixed {

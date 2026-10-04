@@ -36,7 +36,13 @@ class LineString extends Geometry
 
     public function ToWKT(): string
     {
-        $pointStrings = array_map(fn($point) => "{$point->X} {$point->Y}", $this->Points);
+        if ($this->SRID == SRID::WGS84->value) {
+            // WGS84 is latitude first then longitude, so Y then X
+            $pointStrings = array_map(fn($point) => "{$point->Y} {$point->X}", $this->Points);
+        } else {
+            $pointStrings = array_map(fn($point) => "{$point->X} {$point->Y}", $this->Points);
+        }
+
         $pointsWKT = implode(", ", $pointStrings);
         return "LINESTRING({$pointsWKT})";
     }
