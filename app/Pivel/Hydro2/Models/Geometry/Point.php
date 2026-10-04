@@ -40,6 +40,10 @@ class Point extends Geometry
 
     public function ToWKT(): string
     {
+        if ($this->SRID == SRID::WGS84->value) {
+            // WGS84 is latitude first then longitude, so Y then X
+            return "POINT({$this->Y} {$this->X})";
+        }
         return "POINT({$this->X} {$this->Y})";
     }
 
