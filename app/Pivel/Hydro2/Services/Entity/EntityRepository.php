@@ -242,7 +242,7 @@ class EntityRepository implements IEntityRepository
         }
 
         if ($pk !== null) {
-            if (is_a($pk, $this->definition->GetPrimaryKeyField()->PropertyType)) {
+            if (is_a($pk, $this->definition->GetPrimaryKeyField()->PropertyType) || (is_int($pk) && $this->definition->GetPrimaryKeyField()->PropertyType == "int")) {
                 $this->SetEntityPrimaryKey($entity, $pk);
             }
             $this->SetEntityCollections($entity);

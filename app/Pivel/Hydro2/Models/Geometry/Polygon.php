@@ -41,12 +41,22 @@ class Polygon extends Geometry
     public function ToWKT(): string
     {
         $exteriorStrings = array_map(function($ring) {
-            $pointStrings = array_map(fn($point) => "{$point->X} {$point->Y}", $ring->Points);
+            if ($this->SRID == SRID::WGS84->value) {
+                // WGS84 is latitude first then longitude, so Y then X
+                $pointStrings = array_map(fn($point) => "{$point->Y} {$point->X}", $ring->Points);
+            } else {
+                $pointStrings = array_map(fn($point) => "{$point->X} {$point->Y}", $ring->Points);
+            }
             return "(" . implode(", ", $pointStrings) . ")";
         }, $this->ExteriorRings);
 
         $interiorStrings = array_map(function($ring) {
-            $pointStrings = array_map(fn($point) => "{$point->X} {$point->Y}", $ring->Points);
+            if ($this->SRID == SRID::WGS84->value) {
+                // WGS84 is latitude first then longitude, so Y then X
+                $pointStrings = array_map(fn($point) => "{$point->Y} {$point->X}", $ring->Points);
+            } else {
+                $pointStrings = array_map(fn($point) => "{$point->X} {$point->Y}", $ring->Points);
+            }
             return "(" . implode(", ", $pointStrings) . ")";
         }, $this->InteriorRings);
 
