@@ -596,7 +596,7 @@ class MySqlPersistenceProvider implements IEntityPersistenceProvider
         if ($field->PropertyType == 'array' && $sqlType == "TEXT") {
             try {
                 $decoded = json_decode($value, true);
-                if (is_array($decoded)) {
+                if (is_array($decoded) || $decoded === null) {
                     return $decoded;
                 }
             } catch (Exception) {
