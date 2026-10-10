@@ -41,6 +41,7 @@ var H = {
     AjaxRequest: class {
         Body = "";
         Headers = {};
+        _request = null;
 
         constructor(method, url) {
             this.Method = method;
@@ -82,17 +83,24 @@ var H = {
         }
 
         Send(callback) {
-            const req = new XMLHttpRequest();
-            req.addEventListener("load", function () {
+            this._request = new XMLHttpRequest();
+            this._request.addEventListener("load", function () {
                 // build response
                 var response = new H.AjaxResponse(this.status, this.responseText);
                 callback(response);
             });
-            req.open(this.Method, this.Url);
+            this._request.open(this.Method, this.Url);
             Object.keys(this.Headers).forEach(name => {
-                req.setRequestHeader(name, this.Headers[name]);
+                this._request.setRequestHeader(name, this.Headers[name]);
             });
-            req.send(this.Body);
+            this._request.send(this.Body);
+        }
+
+        Cancel() {
+            if (!this._request) {
+                return;
+            }
+            this._request.abort();
         }
     },
 
