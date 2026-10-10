@@ -3,8 +3,11 @@ class H2View extends HTMLElement {
     h2_component = null;
     state = 'loading';
 
-    constructor() {
+    constructor(is = null) {
         super();
+        if (is !== null) {
+            this.setAttribute("is", is);
+        }
     }
 
     async connectedCallback() {
